@@ -1,0 +1,874 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.title {
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.headerActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.refreshButton {
+  padding: 7px 14px;
+  font-size: 13px;
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.refreshButton:hover:not(:disabled) {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.refreshButton:disabled {
+  color: var(--color-text-disabled);
+  border-color: var(--color-border);
+  cursor: default;
+}
+
+.syncMeta {
+  font-size: 12px;
+  color: var(--color-text-disabled);
+}
+
+.retryButton {
+  margin-top: 4px;
+  padding: 7px 14px;
+  font-size: 13px;
+  color: var(--color-surface);
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.retryButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.note {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--color-text-disabled);
+}
+
+.mutedText {
+  font-size: 13px;
+  color: var(--color-text-disabled);
+}
+
+/* ---- 顶部概览 ---- */
+.overviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.identityName {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.identityTarget {
+  margin: 6px 0 14px;
+  font-size: 14px;
+  color: var(--color-primary);
+}
+
+.infoList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.infoList > div {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.infoList dt {
+  flex-shrink: 0;
+  width: 64px;
+  color: var(--color-text-disabled);
+}
+
+.infoList dd {
+  margin: 0;
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.inlineLink {
+  display: block;
+  color: var(--color-primary);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+
+.inlineLink:hover {
+  text-decoration: underline;
+}
+
+.eduSchool {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.eduMajor {
+  margin: 4px 0 12px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.eduHighlights {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+/* ---- 时间线 ---- */
+.timelineList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.timelineItem {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  font-size: 13.5px;
+}
+
+.timelinePeriod {
+  flex-shrink: 0;
+  width: 168px;
+  color: var(--color-text-disabled);
+  font-size: 12.5px;
+}
+
+.timelineTitle {
+  color: var(--color-text);
+}
+
+.sectionFootnote {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--color-text-disabled);
+}
+
+/* ---- 技能 ---- */
+.skillGroupList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skillGroupRow {
+  display: flex;
+  gap: 14px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.skillGroupName {
+  flex-shrink: 0;
+  width: 150px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.skillGroupDetail {
+  color: var(--color-text-secondary);
+}
+
+.subLabel {
+  margin: 18px 0 10px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip,
+.chipBlue {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 12.5px;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.chipBlue {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+}
+
+/* ---- 量化成果 ---- */
+.metricList {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text);
+}
+
+.metricList li::marker {
+  color: var(--color-primary);
+}
+
+/* ---- AI 区块 ---- */
+.aiNotice {
+  padding: 18px 20px;
+  background: var(--color-warning-light);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-lg);
+}
+
+.aiNoticeTitle {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.aiNoticeText {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+}
+
+.aiNotice code,
+.aiNoticeText code {
+  padding: 1px 5px;
+  font-size: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.aiEntry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.aiEntryText {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+
+.aiResult {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.aiSummary {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.7;
+  background: var(--color-primary-light);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+}
+
+.aiField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aiFieldLabel,
+.aiFieldLabelHit,
+.aiFieldLabelWarn {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.aiFieldLabelHit {
+  color: var(--color-success);
+}
+
+.aiFieldLabelWarn {
+  color: var(--color-warning);
+}
+
+.aiTwoCol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.bulletList,
+.bulletListWarn,
+.aiTimelineBullets,
+.tipsList {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.bulletList li::marker {
+  color: var(--color-success);
+}
+
+.bulletListWarn li::marker {
+  color: var(--color-warning);
+}
+
+.aiTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aiTimelineItem {
+  padding: 12px 14px;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-md);
+}
+
+.aiTimelineHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.aiTimelineTitle {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.aiTimelinePeriod {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--color-text-disabled);
+}
+
+.aiTimelineBullets {
+  margin-top: 4px;
+}
+
+/* ---- 原文 ---- */
+.rawSummary {
+  font-size: 13px;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.rawText {
+  margin: 12px 0 0;
+  padding: 14px;
+  max-height: 420px;
+  overflow: auto;
+  font-size: 12.5px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+/* ---- JD 工作台 ---- */
+.jdStudio {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.jdPrefillHint {
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-md);
+}
+
+.jdInputRow {
+  display: flex;
+  gap: 10px;
+}
+
+.jdCompanyInput,
+.jdTitleInput,
+.jdTextarea {
+  font-size: 13px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  outline: none;
+  font-family: inherit;
+}
+
+.jdCompanyInput,
+.jdTitleInput {
+  height: 34px;
+  padding: 0 10px;
+  flex: 1;
+}
+
+.jdTextarea {
+  width: 100%;
+  padding: 10px;
+  resize: vertical;
+  line-height: 1.7;
+}
+
+.jdCompanyInput:focus,
+.jdTitleInput:focus,
+.jdTextarea:focus {
+  border-color: var(--color-primary);
+}
+
+.jdActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.jdPrimaryButton,
+.jdSecondaryButton {
+  height: 34px;
+  padding: 0 18px;
+  font-size: 13px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.jdPrimaryButton {
+  color: var(--color-surface);
+  background: var(--color-primary);
+  border: none;
+}
+
+.jdPrimaryButton:disabled {
+  background: var(--color-text-disabled);
+  cursor: default;
+}
+
+.jdPrimaryButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.jdSecondaryButton {
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-primary-border);
+}
+
+.jdSecondaryButton:hover:not(:disabled) {
+  background: var(--color-primary-light);
+}
+
+.jdSecondaryButton:disabled {
+  color: var(--color-text-disabled);
+  border-color: var(--color-border);
+  cursor: default;
+}
+
+.jdCounter {
+  font-size: 12px;
+  color: var(--color-text-disabled);
+}
+
+.jdError {
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--color-danger);
+  background: var(--color-danger-light);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-md);
+}
+
+.resultBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.matchHead {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+
+.matchScoreWrap {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.matchScore {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.matchScoreTotal {
+  font-size: 14px;
+  color: var(--color-text-disabled);
+}
+
+.matchDecision {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.decisionText {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.matchConclusion {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.toneSuccess {
+  color: var(--color-success);
+}
+
+.toneWarning {
+  color: var(--color-warning);
+}
+
+.toneDanger {
+  color: var(--color-danger);
+}
+
+.dimensionList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+}
+
+.dimensionRow {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dimensionTop {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+}
+
+.dimensionLabel {
+  color: var(--color-text-secondary);
+}
+
+.dimensionScore {
+  font-weight: 600;
+}
+
+.dimensionTrack,
+.coverageTrack {
+  height: 6px;
+  background: var(--color-surface-muted);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.dimensionBar,
+.coverageBar {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 999px;
+}
+
+.dimensionBar.toneSuccess,
+.coverageBar.toneSuccess {
+  background: var(--color-success);
+}
+
+.dimensionBar.toneWarning,
+.coverageBar.toneWarning {
+  background: var(--color-warning);
+}
+
+.dimensionBar.toneDanger,
+.coverageBar.toneDanger {
+  background: var(--color-danger);
+}
+
+.dimensionReason {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-disabled);
+}
+
+.matchColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.matchColumnTitleHit,
+.matchColumnTitleGap {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+}
+
+.matchColumnTitleHit {
+  color: var(--color-success);
+}
+
+.matchColumnTitleGap {
+  color: var(--color-warning);
+}
+
+.evidenceList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.evidenceList li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.evidencePoint {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.evidenceText {
+  color: var(--color-text-secondary);
+}
+
+/* ---- 覆盖度 / 改写 ---- */
+.coverageRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.coverageLabel {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.coverageTrack {
+  flex: 1;
+}
+
+.coverageValue {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.keywordRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.keywordCaption {
+  font-size: 12.5px;
+  color: var(--color-text-disabled);
+}
+
+.keywordChip {
+  padding: 3px 10px;
+  font-size: 12.5px;
+  border-radius: 999px;
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
+}
+
+.rewriteList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rewriteCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.rewriteOriginal {
+  display: flex;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--color-text-disabled);
+}
+
+.rewriteVersionA,
+.rewriteVersionB {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.rewriteVersionA {
+  background: var(--color-primary-light);
+}
+
+.rewriteVersionB {
+  background: var(--color-success-light);
+}
+
+.rewriteVersionA p,
+.rewriteVersionB p {
+  margin: 6px 0 0;
+}
+
+.rewriteVersionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rewriteTagMuted,
+.rewriteTagA,
+.rewriteTagB {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 4px;
+  height: fit-content;
+}
+
+.rewriteTagMuted {
+  color: var(--color-text-disabled);
+  background: var(--color-surface-muted);
+}
+
+.rewriteTagA {
+  color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.rewriteTagB {
+  color: var(--color-success);
+  background: var(--color-surface);
+}
+
+.rewriteReason {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-disabled);
+}
+
+.copyButton {
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.copyButton:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.tipsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tipsTitle {
+  margin: 0;
+  font-size: 13.5px;
+}
+
+@media (max-width: 960px) {
+  .overviewGrid,
+  .aiTwoCol,
+  .dimensionList,
+  .matchColumns {
+    grid-template-columns: 1fr;
+  }
+}

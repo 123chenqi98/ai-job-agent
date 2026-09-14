@@ -1,0 +1,231 @@
+.layout {
+  display: flex;
+  height: 100%;
+}
+
+/* 左侧深色导航 */
+.sidebar {
+  width: 228px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-sidebar-bg);
+  border-right: 1px solid var(--color-sidebar-border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 18px;
+  border-bottom: 1px solid var(--color-sidebar-border);
+}
+
+.brandMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: #fff;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+}
+
+.brandName {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--color-sidebar-text-strong);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  color: var(--color-sidebar-text);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.navItem:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-sidebar-text-strong);
+}
+
+.navItemActive,
+.navItemActive:hover {
+  background: var(--color-sidebar-active);
+  color: var(--color-sidebar-text-strong);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--color-sidebar-active-border);
+}
+
+.navIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.navItemActive .navIcon {
+  opacity: 1;
+}
+
+.sidebarFooter {
+  margin-top: auto;
+  padding: 14px 20px;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  color: rgba(182, 186, 197, 0.55);
+  border-top: 1px solid var(--color-sidebar-border);
+}
+
+/* 右侧主区域 */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--color-bg);
+}
+
+.topbar {
+  height: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.topbarTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.envBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 3px 11px;
+}
+
+.envDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+
+.content {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+}
+
+/* ---- 窄屏：深色侧栏收敛为横向顶栏 ---- */
+@media (max-width: 720px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    border-right: none;
+    border-bottom: 1px solid var(--color-sidebar-border);
+  }
+
+  .brand {
+    flex-shrink: 0;
+    gap: 8px;
+    padding: 12px 10px 12px 14px;
+    border-bottom: none;
+  }
+
+  .brandMark {
+    width: 26px;
+    height: 26px;
+  }
+
+  .brandName {
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .nav {
+    flex: 1;
+    min-width: 0;
+    flex-direction: row;
+    gap: 2px;
+    padding: 0 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .navItem {
+    flex-shrink: 0;
+    gap: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    white-space: nowrap;
+    box-shadow: none;
+  }
+
+  .navItemActive,
+  .navItemActive:hover {
+    box-shadow: inset 0 -3px 0 var(--color-sidebar-active-border);
+  }
+
+  .sidebarFooter {
+    display: none;
+  }
+
+  .topbar {
+    height: 48px;
+    padding: 0 14px;
+  }
+
+  .topbarTitle {
+    font-size: 14px;
+  }
+
+  .envBadge {
+    padding: 2px 9px;
+    font-size: 11px;
+  }
+
+  .content {
+    padding: 14px;
+  }
+}

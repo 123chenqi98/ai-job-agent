@@ -1,0 +1,73 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.item {
+  padding: 12px 14px;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-left-width: 3px;
+  border-radius: var(--radius-md);
+}
+
+.barHigh {
+  border-left-color: var(--color-danger);
+}
+
+.barMid {
+  border-left-color: var(--color-warning);
+}
+
+.barLow {
+  border-left-color: var(--color-text-disabled);
+}
+
+.itemHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.riskLabel {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.meta {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--color-text-disabled);
+}
+
+.description {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+.safe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--color-success);
+  background: var(--color-success-light);
+  border: 1px solid var(--color-success-border);
+  border-radius: var(--radius-md);
+}
+
+.safeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+  flex-shrink: 0;
+}

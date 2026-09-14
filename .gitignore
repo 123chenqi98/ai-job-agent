@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+server/.env
+# 本地简历文件含个人隐私，仅在本机解析，禁止入库
+server/data/
+.DS_Store
+npm-debug.log*

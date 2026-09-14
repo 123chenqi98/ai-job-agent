@@ -1,0 +1,39 @@
+.badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  background: var(--color-surface);
+  line-height: 1;
+}
+
+.score {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.caption {
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.success {
+  color: var(--color-score-high);
+  background: var(--color-success-light);
+}
+
+.warning {
+  color: var(--color-score-mid);
+  background: var(--color-warning-light);
+}
+
+.danger {
+  color: var(--color-score-low);
+  background: var(--color-danger-light);
+}
