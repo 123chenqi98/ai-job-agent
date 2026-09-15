@@ -5,6 +5,16 @@ import { fetchAuthStatus, logout } from '@/auth/authClient'
 import styles from './WorkbenchLayout.module.css'
 
 // 线性导航图标：1.6 描边、currentColor 继承，无第三方依赖
+function IconHome() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 11.5 12 4l8 7.5" />
+      <path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" />
+      <path d="M10 20v-5h4v5" />
+    </svg>
+  )
+}
+
 function IconBriefcase() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -57,7 +67,8 @@ function IconResume() {
 }
 
 // 侧边主导航：只放一级模块；岗位详情 / Mock 简历建议从列表进入，不占主导航
-const NAV_ITEMS: Array<{ to: string; label: string; icon: () => ReactNode }> = [
+const NAV_ITEMS: Array<{ to: string; label: string; icon: () => ReactNode; end?: boolean }> = [
+  { to: '/', label: '今日工作台', icon: IconHome, end: true },
   { to: '/jobs', label: '岗位池', icon: IconBriefcase },
   { to: '/evaluate', label: '岗位评估', icon: IconClipboardCheck },
   { to: '/board', label: '投递看板', icon: IconKanban },
@@ -66,6 +77,7 @@ const NAV_ITEMS: Array<{ to: string; label: string; icon: () => ReactNode }> = [
 
 // 顶栏展示「当前所在页」，避免与侧栏品牌名重复
 function resolvePageTitle(pathname: string): string {
+  if (pathname === '/') return '今日工作台'
   if (pathname === '/jobs') return '岗位池'
   if (pathname.startsWith('/jobs/')) return '岗位详情（原型 Mock）'
   if (pathname.startsWith('/evaluate/batch')) return '批量评估与排名'
@@ -73,7 +85,7 @@ function resolvePageTitle(pathname: string): string {
   if (pathname.startsWith('/evaluate')) return '单岗位评估'
   if (pathname.startsWith('/board')) return '投递看板'
   if (pathname.startsWith('/resume')) return '我的简历'
-  return '岗位池'
+  return '今日工作台'
 }
 
 export default function WorkbenchLayout() {
@@ -86,7 +98,9 @@ export default function WorkbenchLayout() {
   // 数据来源三态：飞书只读两表 / 本机简历（AI 增强）/ 前端原型 Mock
   // 注意：/jobs 列表为飞书数据，/jobs/:id 详情为早期 Mock 原型（无站内入口），需区分
   const isFeishuConnected =
-    location.pathname === '/jobs' || location.pathname.startsWith('/board')
+    location.pathname === '/' ||
+    location.pathname === '/jobs' ||
+    location.pathname.startsWith('/board')
   const isLocalResume =
     location.pathname === '/resume' || location.pathname.startsWith('/evaluate')
 
@@ -108,6 +122,7 @@ export default function WorkbenchLayout() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.end}
                 className={({ isActive }) =>
                   isActive
                     ? `${styles.navItem} ${styles.navItemActive}`

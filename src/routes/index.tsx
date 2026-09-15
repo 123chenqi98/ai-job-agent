@@ -1,6 +1,7 @@
-import { Link, Navigate, Route, Routes } from 'react-router-dom'
+import { Link, Route, Routes } from 'react-router-dom'
 import WorkbenchLayout from '@/layouts/WorkbenchLayout'
 import StateView from '@/components/common/StateView'
+import Dashboard from '@/pages/Dashboard'
 import JobPool from '@/pages/JobPool'
 import JobDetail from '@/pages/JobDetail'
 import ResumeSuggestion from '@/pages/ResumeSuggestion'
@@ -29,7 +30,7 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route element={<WorkbenchLayout />}>
-        <Route path="/" element={<Navigate to="/jobs" replace />} />
+        <Route path="/" element={<Dashboard />} />
         <Route path="/jobs" element={<JobPool />} />
         <Route path="/jobs/:jobId" element={<JobDetail />} />
         <Route path="/jobs/:jobId/resume" element={<ResumeSuggestion />} />

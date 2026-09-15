@@ -7,6 +7,10 @@ import styles from './JobPool.module.css'
 
 const ONBOARD_KEY = 'ai-job-agent:onboard-dismissed:v1'
 
+// 一键过滤：方向写入关键词（匹配公司名/岗位名），城市写入城市精确匹配
+const DIRECTION_CHIPS = ['数据分析', '商业分析', '数据运营', '产品经理', '运营', '算法']
+const CITY_CHIPS = ['北京', '上海', '广州', '深圳', '杭州', '成都', '南京', '武汉']
+
 const ONBOARD_STEPS = [
   {
     title: '筛选岗位',
@@ -91,6 +95,14 @@ export default function JobPool() {
       degree: activeFilter.degree,
       ...patch,
     })
+  }
+
+  // 快捷 chips：点方向 / 城市即替换对应维度并立即查询，其余维度保持不变
+  const applyChip = (patch: { keyword?: string; city?: string }) => {
+    const next: JobFilter = { ...activeFilter, ...patch }
+    if (patch.keyword !== undefined) setKeywordInput(patch.keyword)
+    if (patch.city !== undefined) setCityInput(patch.city)
+    void searchJobs(next)
   }
 
   const statCards = meta
@@ -225,6 +237,68 @@ export default function JobPool() {
       </div>
 
       <SectionCard>
+        <div className={styles.chipPanel}>
+          <div className={styles.chipRow}>
+            <span className={styles.chipLabel}>方向</span>
+            <div className={styles.chips}>
+              <button
+                type="button"
+                className={
+                  activeFilter.keyword === ''
+                    ? `${styles.chip} ${styles.chipActive}`
+                    : styles.chip
+                }
+                onClick={() => applyChip({ keyword: '' })}
+              >
+                全部
+              </button>
+              {DIRECTION_CHIPS.map((kw) => (
+                <button
+                  key={kw}
+                  type="button"
+                  className={
+                    activeFilter.keyword === kw
+                      ? `${styles.chip} ${styles.chipActive}`
+                      : styles.chip
+                  }
+                  onClick={() => applyChip({ keyword: kw })}
+                >
+                  {kw}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className={styles.chipRow}>
+            <span className={styles.chipLabel}>城市</span>
+            <div className={styles.chips}>
+              <button
+                type="button"
+                className={
+                  activeFilter.city === ''
+                    ? `${styles.chip} ${styles.chipActive}`
+                    : styles.chip
+                }
+                onClick={() => applyChip({ city: '' })}
+              >
+                全部
+              </button>
+              {CITY_CHIPS.map((city) => (
+                <button
+                  key={city}
+                  type="button"
+                  className={
+                    activeFilter.city === city
+                      ? `${styles.chip} ${styles.chipActive}`
+                      : styles.chip
+                  }
+                  onClick={() => applyChip({ city })}
+                >
+                  {city}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
         <form
           className={styles.filterRow}
           onSubmit={(e) => {

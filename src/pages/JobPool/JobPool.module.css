@@ -202,6 +202,60 @@
   color: var(--color-score-mid);
 }
 
+/* 快捷筛选 chips：方向 / 城市一键过滤 */
+.chipPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.chipRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.chipLabel {
+  flex-shrink: 0;
+  width: 32px;
+  padding-top: 4px;
+  font-size: 12px;
+  color: var(--color-text-disabled);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.chipActive,
+.chipActive:hover {
+  color: var(--color-surface);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
 /* 筛选行 */
 .filterRow {
   display: flex;
