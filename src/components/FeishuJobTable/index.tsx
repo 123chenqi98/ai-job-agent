@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom'
+import Tag from '@/components/common/Tag'
+import { findEvalForJob } from '@/data/evaluationHistory'
 import type { FeishuJobItem } from '@/types/feishu'
 import styles from './FeishuJobTable.module.css'
 
@@ -6,16 +8,66 @@ interface FeishuJobTableProps {
   items: FeishuJobItem[]
 }
 
-function ExternalLink({ href, children }: { href: string; children: string }) {
+type DeadlineTone = 'normal' | 'urgent' | 'expired' | 'rolling'
+
+function parseDate(raw: string): Date | null {
+  const matched = raw.match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/)
+  if (!matched) return null
+  const date = new Date(Number(matched[1]), Number(matched[2]) - 1, Number(matched[3]))
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+// 截止时间视觉分层：7 天内临期橙色、已过期灰色划线、「招满即止/滚动招聘」中性标签
+function deadlineView(raw: string | null): { text: string; tone: DeadlineTone } {
+  if (!raw) return { text: '—', tone: 'normal' }
+  const text = raw.trim()
+  if (/招满|滚动|长期|常年/.test(text)) return { text, tone: 'rolling' }
+  const date = parseDate(text)
+  if (!date) return { text, tone: 'normal' }
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const days = Math.round((date.getTime() - today.getTime()) / 86_400_000)
+  if (days < 0) return { text, tone: 'expired' }
+  if (days <= 7) return { text, tone: 'urgent' }
+  return { text, tone: 'normal' }
+}
+
+function formatUpdated(raw: string | null): string | null {
+  if (!raw) return null
+  const date = parseDate(raw)
+  if (!date) return raw
+  return `${date.getMonth() + 1}/${date.getDate()} 更新`
+}
+
+function scoreToneClass(score: number): string {
+  if (score >= 80) return styles.scoreHigh
+  if (score >= 60) return styles.scoreMid
+  return styles.scoreLow
+}
+
+const deadlineToneClass: Record<DeadlineTone, string> = {
+  normal: styles.deadlineNormal,
+  urgent: styles.deadlineUrgent,
+  expired: styles.deadlineExpired,
+  rolling: styles.deadlineRolling,
+}
+
+function ExternalIcon() {
   return (
-    <a
-      className={styles.link}
-      href={href}
-      target="_blank"
-      rel="noreferrer noopener"
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
     >
-      {children} ↗
-    </a>
+      <path d="M7 17 17 7" />
+      <path d="M8 7h9v9" />
+    </svg>
   )
 }
 
@@ -25,7 +77,7 @@ export default function FeishuJobTable({ items }: FeishuJobTableProps) {
       <table className={styles.table}>
         <thead>
           <tr>
-            <th className={styles.colCompany}>公司</th>
+            <th className={styles.colCompany}>公司 / 行业</th>
             <th>招聘岗位</th>
             <th className={styles.colCity}>地点</th>
             <th className={styles.colMeta}>届别</th>
@@ -35,41 +87,88 @@ export default function FeishuJobTable({ items }: FeishuJobTableProps) {
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => (
-            <tr key={item.record_id}>
-              <td className={styles.company}>{item.company || '—'}</td>
-              <td>
-                <div className={styles.jobTitle} title={item.job_title}>
-                  {item.job_title || '—'}
-                </div>
-                {item.recruit_type || item.industry ? (
-                  <div className={styles.subMeta}>
-                    {[item.recruit_type, item.industry].filter(Boolean).join(' · ')}
+          {items.map((item) => {
+            const deadline = deadlineView(item.deadline)
+            const updated = formatUpdated(item.updated_at)
+            const evalRecord = findEvalForJob(item.company, item.job_title)
+            return (
+              <tr key={item.record_id}>
+                <td>
+                  <div className={styles.company}>{item.company || '—'}</div>
+                  {item.industry ? <div className={styles.companySub}>{item.industry}</div> : null}
+                </td>
+                <td>
+                  <div className={styles.jobTitle} title={item.job_title}>
+                    {item.job_title || '—'}
                   </div>
-                ) : null}
-              </td>
-              <td className={styles.muted}>{item.city || '—'}</td>
-              <td className={styles.muted}>{item.target || '—'}</td>
-              <td className={styles.muted}>{item.degree || '—'}</td>
-              <td className={`${styles.muted} ${styles.deadline}`}>{item.deadline || '—'}</td>
-              <td>
-                <div className={styles.links}>
-                  <Link
-                    className={`${styles.link} ${styles.linkEval}`}
-                    to={`/evaluate?company=${encodeURIComponent(item.company || '')}&title=${encodeURIComponent(item.job_title || '')}`}
-                  >
-                    评估
-                  </Link>
-                  {item.apply_url ? (
-                    <ExternalLink href={item.apply_url}>投递</ExternalLink>
+                  <div className={styles.tagRow}>
+                    {item.recruit_type ? <Tag tone="primary">{item.recruit_type}</Tag> : null}
+                    {item.company_nature ? <Tag tone="neutral">{item.company_nature}</Tag> : null}
+                    {evalRecord ? (
+                      <Link
+                        className={styles.evalBadge}
+                        to={`/evaluate/history?id=${encodeURIComponent(evalRecord.id)}`}
+                        title={`本机已评估：${evalRecord.score} 分（${evalRecord.decision}），点击回看报告`}
+                      >
+                        已评估 <span className={scoreToneClass(evalRecord.score)}>{evalRecord.score}</span>
+                      </Link>
+                    ) : null}
+                  </div>
+                  {item.note ? (
+                    <div className={styles.noteLine} title={item.note}>
+                      {item.note}
+                    </div>
                   ) : null}
-                  {item.announcement_url ? (
-                    <ExternalLink href={item.announcement_url}>公告</ExternalLink>
-                  ) : null}
-                </div>
-              </td>
-            </tr>
-          ))}
+                </td>
+                <td className={styles.muted}>{item.city || '—'}</td>
+                <td className={styles.muted}>{item.target || '—'}</td>
+                <td className={styles.muted}>{item.degree || '—'}</td>
+                <td>
+                  <div className={`${styles.deadline} ${deadlineToneClass[deadline.tone]}`}>
+                    {deadline.text}
+                  </div>
+                  {updated ? <div className={styles.updated}>{updated}</div> : null}
+                </td>
+                <td>
+                  <div className={styles.actions}>
+                    {item.apply_url ? (
+                      <a
+                        className={styles.btnApply}
+                        href={item.apply_url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      >
+                        立即投递
+                        <ExternalIcon />
+                      </a>
+                    ) : (
+                      <span className={`${styles.btnApply} ${styles.btnApplyDisabled}`}>
+                        暂无投递链接
+                      </span>
+                    )}
+                    <div className={styles.actionSub}>
+                      <Link
+                        className={styles.btnEval}
+                        to={`/evaluate?company=${encodeURIComponent(item.company || '')}&title=${encodeURIComponent(item.job_title || '')}`}
+                      >
+                        评估
+                      </Link>
+                      {item.announcement_url ? (
+                        <a
+                          className={styles.btnAnnounce}
+                          href={item.announcement_url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          公告
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

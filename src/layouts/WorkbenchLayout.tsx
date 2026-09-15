@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { WorkbenchDataProvider } from '@/state/WorkbenchStore'
 import styles from './WorkbenchLayout.module.css'
 
 // 线性导航图标：1.6 描边、currentColor 继承，无第三方依赖
@@ -121,7 +122,9 @@ export default function WorkbenchLayout() {
           </span>
         </header>
         <section className={styles.content}>
-          <Outlet />
+          <WorkbenchDataProvider>
+            <Outlet />
+          </WorkbenchDataProvider>
         </section>
       </div>
     </div>

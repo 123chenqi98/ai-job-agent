@@ -56,6 +56,11 @@
   color: var(--color-text-disabled);
 }
 
+.refreshError {
+  font-size: 12px;
+  color: var(--color-danger);
+}
+
 .retryButton {
   margin-top: 4px;
   padding: 7px 14px;

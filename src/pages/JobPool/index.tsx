@@ -1,24 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import SectionCard from '@/components/common/SectionCard'
 import StateView from '@/components/common/StateView'
 import FeishuJobTable from '@/components/FeishuJobTable'
-import { getFeishuJobs, getFeishuJobsMeta } from '@/data/feishuRepository'
-import type {
-  FeishuJobItem,
-  FeishuJobQuery,
-  FeishuJobsMeta,
-  FeishuJobsResponse,
-} from '@/types/feishu'
+import { DEFAULT_JOB_FILTER, useJobsStore, type JobFilter } from '@/state/WorkbenchStore'
 import styles from './JobPool.module.css'
-
-interface SearchFilter {
-  keyword: string
-  target: string
-  degree: string
-  city: string
-}
-
-const EMPTY_FILTER: SearchFilter = { keyword: '', target: '', degree: '', city: '' }
 
 const ONBOARD_KEY = 'ai-job-agent:onboard-dismissed:v1'
 
@@ -51,39 +36,35 @@ function formatSyncTime(date: Date): string {
   })
 }
 
-function toQuery(filter: SearchFilter, pageToken?: string): FeishuJobQuery {
-  return {
-    keyword: filter.keyword || undefined,
-    target: filter.target || undefined,
-    degree: filter.degree || undefined,
-    city: filter.city || undefined,
-    pageToken,
-  }
-}
-
-function isAbortError(err: unknown): boolean {
-  return err instanceof DOMException && err.name === 'AbortError'
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : '读取飞书数据失败，请稍后重试。'
-}
-
 export default function JobPool() {
-  const [meta, setMeta] = useState<FeishuJobsMeta | null>(null)
-  const [items, setItems] = useState<FeishuJobItem[]>([])
-  const [total, setTotal] = useState(0)
-  const [hasMore, setHasMore] = useState(false)
-  const [nextToken, setNextToken] = useState('')
-  const [activeFilter, setActiveFilter] = useState<SearchFilter>(EMPTY_FILTER)
-  const [keywordInput, setKeywordInput] = useState('')
-  const [cityInput, setCityInput] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [searching, setSearching] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [listError, setListError] = useState<string | null>(null)
-  const [syncedAt, setSyncedAt] = useState<Date | null>(null)
+  const {
+    bootstrapStatus,
+    bootstrapError,
+    meta,
+    items,
+    total,
+    hasMore,
+    filter: activeFilter,
+    keywordInput,
+    cityInput,
+    searching,
+    loadingMore,
+    listError,
+    syncedAt,
+    ensureBootstrap,
+    bootstrap,
+    searchJobs,
+    loadMoreJobs,
+    resetFilters,
+    setKeywordInput,
+    setCityInput,
+  } = useJobsStore()
+
+  // 仅在本会话首次进入岗位池时拉取；之后切换导航回来直接展示缓存，筛选与列表原样保留
+  useEffect(() => {
+    ensureBootstrap()
+  }, [ensureBootstrap])
+
   const [onboardVisible, setOnboardVisible] = useState(() => {
     try {
       return window.localStorage.getItem(ONBOARD_KEY) !== '1'
@@ -101,111 +82,15 @@ export default function JobPool() {
     }
   }
 
-  // 列表请求共用一个中断器：发起新查询时取消上一个在途请求（含 StrictMode 双挂载）
-  const listAbortRef = useRef<AbortController | null>(null)
-
-  const applyPage = useCallback((page: FeishuJobsResponse, append: boolean) => {
-    setItems((prev) => {
-      if (!append) return page.items
-      const seen = new Set(prev.map((i) => i.record_id))
-      return [...prev, ...page.items.filter((i) => !seen.has(i.record_id))]
-    })
-    setTotal(page.total)
-    setHasMore(page.has_more)
-    setNextToken(page.page_token ?? '')
-    setSyncedAt(new Date())
-  }, [])
-
-  // 首屏（及失败重试 / 手动刷新）：元信息与首页数据并行拉取
-  const bootstrap = useCallback(async () => {
-    listAbortRef.current?.abort()
-    const controller = new AbortController()
-    listAbortRef.current = controller
-    setLoading(true)
-    setError(null)
-    setListError(null)
-    try {
-      const [metaRes, page] = await Promise.all([
-        getFeishuJobsMeta(controller.signal),
-        getFeishuJobs({}, controller.signal),
-      ])
-      setMeta(metaRes)
-      applyPage(page, false)
-      setActiveFilter(EMPTY_FILTER)
-      setKeywordInput('')
-      setCityInput('')
-    } catch (err) {
-      if (isAbortError(err)) return
-      setError(errorMessage(err))
-    } finally {
-      if (!controller.signal.aborted) setLoading(false)
-    }
-  }, [applyPage])
-
-  useEffect(() => {
-    void bootstrap()
-    return () => listAbortRef.current?.abort()
-  }, [bootstrap])
-
-  // 筛选 / 刷新：回到第一页并替换列表
-  const runSearch = useCallback(
-    async (next: SearchFilter) => {
-      listAbortRef.current?.abort()
-      const controller = new AbortController()
-      listAbortRef.current = controller
-      setSearching(true)
-      setLoadingMore(false)
-      setListError(null)
-      try {
-        const page = await getFeishuJobs(toQuery(next), controller.signal)
-        applyPage(page, false)
-        setActiveFilter(next)
-        getFeishuJobsMeta()
-          .then(setMeta)
-          .catch(() => undefined)
-      } catch (err) {
-        if (isAbortError(err)) return
-        setListError(errorMessage(err))
-      } finally {
-        if (!controller.signal.aborted) setSearching(false)
-      }
-    },
-    [applyPage],
-  )
-
   // 下拉框变化即时查询，关键词 / 城市以输入框当前值为准
-  const searchFromControls = (patch: Partial<SearchFilter>) => {
-    void runSearch({
+  const searchFromControls = (patch: Partial<JobFilter>) => {
+    void searchJobs({
       keyword: keywordInput.trim(),
       city: cityInput.trim(),
       target: activeFilter.target,
       degree: activeFilter.degree,
       ...patch,
     })
-  }
-
-  const resetFilters = () => {
-    setKeywordInput('')
-    setCityInput('')
-    void runSearch(EMPTY_FILTER)
-  }
-
-  // 加载更多：沿当前筛选条件追加下一页
-  const loadMore = async () => {
-    if (!hasMore || !nextToken || loadingMore || searching) return
-    const controller = new AbortController()
-    listAbortRef.current = controller
-    setLoadingMore(true)
-    setListError(null)
-    try {
-      const page = await getFeishuJobs(toQuery(activeFilter, nextToken), controller.signal)
-      applyPage(page, true)
-    } catch (err) {
-      if (isAbortError(err)) return
-      setListError(errorMessage(err))
-    } finally {
-      if (!controller.signal.aborted) setLoadingMore(false)
-    }
   }
 
   const statCards = meta
@@ -221,7 +106,7 @@ export default function JobPool() {
           key: 'target27',
           label: '27 届岗位',
           value: meta.totals.target27,
-          hint: '招聘对象为「27届」的岗位',
+          hint: '招聘对象为「27届」的岗位，也是当前默认口径',
           tone: styles.toneSuccess,
         },
         {
@@ -235,11 +120,13 @@ export default function JobPool() {
     : []
 
   const hasActiveFilter =
-    activeFilter.keyword !== '' ||
-    activeFilter.target !== '' ||
-    activeFilter.degree !== '' ||
-    activeFilter.city !== ''
+    activeFilter.keyword !== DEFAULT_JOB_FILTER.keyword ||
+    activeFilter.target !== DEFAULT_JOB_FILTER.target ||
+    activeFilter.degree !== DEFAULT_JOB_FILTER.degree ||
+    activeFilter.city !== DEFAULT_JOB_FILTER.city
   const remaining = Math.max(total - items.length, 0)
+  const loading = bootstrapStatus === 'loading'
+  const error = bootstrapStatus === 'error' ? bootstrapError : null
 
   if (loading) {
     return (
@@ -282,7 +169,7 @@ export default function JobPool() {
           <h1 className={styles.title}>岗位池</h1>
           <p className={styles.subtitle}>
             只读浏览飞书《{meta?.source ?? '27届实习&校招总表'}
-            》：按公司、岗位、届别、学历与城市筛选网申信息，点击「投递」在新标签打开官方页面。
+            》：默认展示 27 届岗位，可按公司、岗位、学历与城市筛选；点「立即投递」在新标签打开官方网申页。
           </p>
         </div>
         <div className={styles.headerActions}>
@@ -290,12 +177,12 @@ export default function JobPool() {
             type="button"
             className={styles.refreshButton}
             disabled={searching || loadingMore}
-            onClick={() => void runSearch(activeFilter)}
+            onClick={() => void searchJobs(activeFilter)}
           >
-            刷新同步
+            {searching ? '同步中…' : '刷新同步'}
           </button>
           {syncedAt ? (
-            <span className={styles.syncMeta}>最近同步：{formatSyncTime(syncedAt)}</span>
+            <span className={styles.syncMeta}>缓存数据 · 最近同步：{formatSyncTime(syncedAt)}</span>
           ) : null}
         </div>
       </header>
@@ -394,7 +281,7 @@ export default function JobPool() {
           </button>
         </form>
         <p className={styles.filterHint}>
-          关键词同时匹配「公司名称」与「招聘岗位」；城市按飞书「工作地点」选项精确匹配；筛选与排序（按网申更新倒序）均在飞书服务端执行。
+          关键词同时匹配「公司名称」与「招聘岗位」；城市按飞书「工作地点」选项精确匹配；筛选与排序（按网申更新倒序）均在飞书服务端执行。切换导航不会清空筛选，仅点「刷新同步」才重新拉取。
         </p>
       </SectionCard>
 
@@ -404,7 +291,7 @@ export default function JobPool() {
           <button
             type="button"
             className={styles.bannerRetry}
-            onClick={() => void runSearch(activeFilter)}
+            onClick={() => void searchJobs(activeFilter)}
           >
             重试本次查询
           </button>
@@ -418,7 +305,7 @@ export default function JobPool() {
           actions={
             hasActiveFilter ? (
               <button type="button" className={styles.retryButton} onClick={resetFilters}>
-                清除全部筛选
+                恢复默认（27 届）
               </button>
             ) : undefined
           }
@@ -443,7 +330,7 @@ export default function JobPool() {
             type="button"
             className={styles.loadMoreButton}
             disabled={loadingMore || searching}
-            onClick={() => void loadMore()}
+            onClick={() => void loadMoreJobs()}
           >
             {loadingMore ? '加载中…' : `加载更多（还有 ${remaining} 个）`}
           </button>
@@ -453,7 +340,7 @@ export default function JobPool() {
       <p className={styles.note}>
         数据来源：飞书多维表格《{meta?.source ?? '27届实习&校招总表'}
         》，经本地只读服务单向读取，工作台不向飞书写入任何内容；列表按「网申更新」倒序、每页 20
-        条。「投递 / 公告」为飞书表中登记的外部链接，将在新标签打开官方页面，工作台不代填表单、不执行自动投递；投递状态与进展请在「投递看板」查看。
+        条。「立即投递 / 公告」为飞书表中登记的外部链接，将在新标签打开官方页面，工作台不代填表单、不执行自动投递；投递状态与进展请在「投递看板」查看。
       </p>
     </div>
   )

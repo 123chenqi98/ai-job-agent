@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { getFeishuBoard } from '@/data/feishuRepository'
-import type { FeishuApplicationItem, FeishuBoardResponse } from '@/types/feishu'
+import { useEffect, useMemo } from 'react'
+import type { FeishuApplicationItem } from '@/types/feishu'
 import { BOARD_COLUMNS } from '@/constants'
 import FeishuBoard from '@/components/FeishuBoard'
 import type { FeishuBoardGroup } from '@/components/FeishuBoard'
 import StateView from '@/components/common/StateView'
+import { useBoardStore } from '@/state/WorkbenchStore'
 import styles from './ApplicationBoard.module.css'
 
 interface InsightItem {
@@ -27,36 +27,12 @@ function formatSyncTime(iso: string): string {
 }
 
 export default function ApplicationBoard() {
-  const [data, setData] = useState<FeishuBoardResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { status, error, data, refreshing, refreshError, ensureLoaded, refresh } = useBoardStore()
 
-  const load = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const response = await getFeishuBoard()
-      setData(response)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '读取飞书数据失败，请稍后重试。')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // 仅本会话首次进入看板时拉取；切换导航回来直接展示缓存，手动「刷新同步」才重新请求
   useEffect(() => {
-    const controller = new AbortController()
-    getFeishuBoard(controller.signal)
-      .then((response) => setData(response))
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-        setError(err instanceof Error ? err.message : '读取飞书数据失败，请稍后重试。')
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
-      })
-    return () => controller.abort()
-  }, [])
+    ensureLoaded()
+  }, [ensureLoaded])
 
   const items: FeishuApplicationItem[] = useMemo(() => data?.items ?? [], [data])
 
@@ -97,7 +73,8 @@ export default function ApplicationBoard() {
     ]
   }, [items])
 
-  if (loading) {
+  // 首次加载且没有缓存数据时才占全屏；手动刷新保留旧看板，只让按钮进入 loading 态
+  if (status === 'loading' && !data) {
     return (
       <div className={styles.page}>
         <StateView title="正在同步飞书数据…" description="正在通过本地只读服务读取你的投递多维表格，请稍候。" />
@@ -105,7 +82,7 @@ export default function ApplicationBoard() {
     )
   }
 
-  if (error) {
+  if (status === 'error' && !data) {
     return (
       <div className={styles.page}>
         <StateView
@@ -118,7 +95,7 @@ export default function ApplicationBoard() {
             </>
           }
           actions={
-            <button type="button" className={styles.retryButton} onClick={load}>
+            <button type="button" className={styles.retryButton} onClick={() => ensureLoaded()}>
               重新同步
             </button>
           }
@@ -137,12 +114,18 @@ export default function ApplicationBoard() {
           </p>
         </div>
         <div className={styles.headerActions}>
-          <button type="button" className={styles.refreshButton} onClick={load}>
-            刷新同步
+          <button
+            type="button"
+            className={styles.refreshButton}
+            disabled={refreshing}
+            onClick={() => void refresh()}
+          >
+            {refreshing ? '同步中…' : '刷新同步'}
           </button>
           {data?.generated_at ? (
-            <span className={styles.syncMeta}>最近同步：{formatSyncTime(data.generated_at)}</span>
+            <span className={styles.syncMeta}>缓存数据 · 最近同步：{formatSyncTime(data.generated_at)}</span>
           ) : null}
+          {refreshError ? <span className={styles.refreshError}>刷新失败：{refreshError}</span> : null}
         </div>
       </header>
 
