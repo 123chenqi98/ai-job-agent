@@ -1,5 +1,6 @@
 import express from 'express'
 import { config } from './config.js'
+import { createAuthGate } from './auth.js'
 import { FeishuApiError } from './feishu/client.js'
 import {
   listFields,
@@ -15,7 +16,24 @@ import { buildAiProfile, buildInterviewPrep, matchJd, rewriteBullets } from './r
 import { isArkConfigured, LlmApiError } from './llm/ark.js'
 
 const app = express()
+// 线上在 Nginx HTTPS 反代之后：信任首层代理以正确识别 req.secure / 客户端 IP（Cookie Secure 与限次依赖）
+app.set('trust proxy', 1)
 app.use(express.json({ limit: '1mb' }))
+
+// 访问门禁：未配置 ACCESS_PASSWORD_HASH 时不启用，本地开发零感知
+const authGate = createAuthGate({
+  passwordHash: config.auth.passwordHash,
+  secret: config.auth.secret,
+})
+
+app.get('/api/auth/status', authGate.handleStatus)
+app.post('/api/auth/login', authGate.handleLogin)
+app.post('/api/auth/logout', authGate.handleLogout)
+// 其余所有数据接口（简历 / 岗位 / 看板 / AI）一律需要登录 Cookie
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health') return next()
+  authGate.requireAuth(req, res, next)
+})
 
 // 岗位池筛选项：原表选项较脏（混入届别/企业性质），这里给出面向校招的常用白名单
 const TARGET_OPTIONS = ['27届', '27届-29届', '26届-27届', '26届', '26届-29届']

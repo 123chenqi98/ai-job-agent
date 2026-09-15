@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { WorkbenchDataProvider } from '@/state/WorkbenchStore'
+import { fetchAuthStatus, logout } from '@/auth/authClient'
 import styles from './WorkbenchLayout.module.css'
 
 // 线性导航图标：1.6 描边、currentColor 继承，无第三方依赖
@@ -30,6 +31,16 @@ function IconKanban() {
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path d="M9 4v16" />
       <path d="M15 4v7" />
+    </svg>
+  )
+}
+
+function IconLogout() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
     </svg>
   )
 }
@@ -67,6 +78,11 @@ function resolvePageTitle(pathname: string): string {
 
 export default function WorkbenchLayout() {
   const location = useLocation()
+  const [authEnabled, setAuthEnabled] = useState(false)
+
+  useEffect(() => {
+    void fetchAuthStatus().then((status) => setAuthEnabled(Boolean(status?.enabled)))
+  }, [])
   // 数据来源三态：飞书只读两表 / 本机简历（AI 增强）/ 前端原型 Mock
   // 注意：/jobs 列表为飞书数据，/jobs/:id 详情为早期 Mock 原型（无站内入口），需区分
   const isFeishuConnected =
@@ -106,7 +122,15 @@ export default function WorkbenchLayout() {
             )
           })}
         </nav>
-        <div className={styles.sidebarFooter}>AI 分析 · 你来决策</div>
+        <div className={styles.sidebarFooter}>
+          <span>AI 分析 · 你来决策</span>
+          {authEnabled ? (
+            <button type="button" className={styles.logoutButton} onClick={() => void logout()}>
+              <IconLogout />
+              退出登录
+            </button>
+          ) : null}
+        </div>
       </aside>
 
       <div className={styles.main}>

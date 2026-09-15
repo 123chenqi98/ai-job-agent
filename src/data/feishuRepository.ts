@@ -1,3 +1,4 @@
+import { notifyUnauthorized } from '@/auth/authClient'
 import type {
   FeishuBoardResponse,
   FeishuJobQuery,
@@ -24,6 +25,7 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
 
   if (!res.ok || !json || json.error) {
     const detail = json?.msg ? `：${json.msg}` : ''
+    if (res.status === 401) notifyUnauthorized(path)
     if (res.status === 403) {
       throw new Error(
         `飞书授权失败（${json?.code ?? res.status}）${detail}。请确认应用已加为表格协作者，且已发布包含只读权限的新版本。`,
