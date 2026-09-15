@@ -29,11 +29,8 @@ const authGate = createAuthGate({
 app.get('/api/auth/status', authGate.handleStatus)
 app.post('/api/auth/login', authGate.handleLogin)
 app.post('/api/auth/logout', authGate.handleLogout)
-// 其余所有数据接口（简历 / 岗位 / 看板 / AI）一律需要登录 Cookie
-app.use('/api', (req, res, next) => {
-  if (req.path === '/health') return next()
-  authGate.requireAuth(req, res, next)
-})
+// 网站默认公开：岗位池 / 看板 / AI 评估均免登录；仅「简历原文」GET /api/resume 单独加锁
+// （AI 的 /api/resume/* 路径是不同路由，不受此精确匹配影响，保持公开）
 
 // 岗位池筛选项：原表选项较脏（混入届别/企业性质），这里给出面向校招的常用白名单
 const TARGET_OPTIONS = ['27届', '27届-29届', '26届-27届', '26届', '26届-29届']
@@ -51,7 +48,7 @@ app.get('/api/config', (_req, res) => {
 })
 
 // 只读：本地简历 PDF → 文本 + 规则画像（不发送任何外部服务）
-app.get('/api/resume', async (_req, res) => {
+app.get('/api/resume', authGate.requireAuth, async (_req, res) => {
   try {
     const { parsed, mtime, size } = await parseResumePdf(config.resume.pdfPath)
     res.json({

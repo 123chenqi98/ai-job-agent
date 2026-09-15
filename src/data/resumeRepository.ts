@@ -1,4 +1,3 @@
-import { notifyUnauthorized } from '@/auth/authClient'
 import type {
   AiProfileResponse,
   AppConfig,
@@ -31,7 +30,12 @@ async function requestJson<T>(
 
   if (!res.ok || !json || json.error) {
     const detail = json?.msg ? `：${json.msg}` : ''
-    if (res.status === 401) notifyUnauthorized(path)
+    // 简历原文 401：抛出可识别错误，由「我的简历」页显示局部解锁卡片（不做全局跳转）
+    if (res.status === 401) {
+      const err = new Error(json?.msg ?? '查看简历需要访问密码') as Error & { status?: number }
+      err.status = 401
+      throw err
+    }
     if (res.status === 503) {
       throw new Error(`火山方舟未配置${detail || '，请在 server/.env 补全 ARK_API_KEY 与 ARK_MODEL 后重启服务。'}`)
     }

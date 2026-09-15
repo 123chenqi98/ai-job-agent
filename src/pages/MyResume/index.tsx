@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import LoginPage from '@/auth/LoginPage'
 import SectionCard from '@/components/common/SectionCard'
 import StateView from '@/components/common/StateView'
 import {
@@ -118,6 +119,7 @@ export default function MyResume() {
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [locked, setLocked] = useState(false)
 
   const [aiProfile, setAiProfile] = useState<AiProfile | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
@@ -136,7 +138,12 @@ export default function MyResume() {
       setConfig(configRes)
       setResume(resumeRes)
     } catch (err) {
-      if (!isAbortError(err)) setError(errorText(err))
+      if (isAbortError(err)) return
+      if ((err as { status?: number }).status === 401) {
+        setLocked(true)
+        return
+      }
+      setError(errorText(err))
     } finally {
       if (!controller.signal.aborted) setLoading(false)
     }
@@ -166,6 +173,19 @@ export default function MyResume() {
     return (
       <div className={styles.page}>
         <StateView title="正在解析本地简历…" description="正在读取 server/data/resume.pdf 的文本层，请稍候。" />
+      </div>
+    )
+  }
+
+  if (locked) {
+    return (
+      <div className={styles.page}>
+        <LoginPage
+          onSuccess={() => {
+            setLocked(false)
+            void load()
+          }}
+        />
       </div>
     )
   }

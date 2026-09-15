@@ -89,33 +89,11 @@
 
 .sidebarFooter {
   margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
   padding: 14px 20px;
   font-size: 11px;
   letter-spacing: 0.4px;
   color: rgba(182, 186, 197, 0.55);
   border-top: 1px solid var(--color-sidebar-border);
-}
-
-.logoutButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  align-self: flex-start;
-  padding: 0;
-  font-size: 12px;
-  letter-spacing: 0;
-  color: var(--color-sidebar-text);
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: color var(--transition-fast);
-}
-
-.logoutButton:hover {
-  color: var(--color-sidebar-text-strong);
 }
 
 /* 右侧主区域 */

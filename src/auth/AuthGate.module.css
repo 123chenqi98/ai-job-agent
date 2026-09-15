@@ -1,12 +1,10 @@
-.screen {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
+/* 简历页内解锁容器：页内居中、不遮挡侧栏与顶栏 */
+.embedded {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 64vh;
   padding: 24px;
-  background: radial-gradient(circle at 50% 0%, #1b2436 0%, #111522 58%);
 }
 
 .card {
@@ -108,19 +106,4 @@
   line-height: 1.6;
   text-align: center;
   color: var(--color-text-disabled);
-}
-
-.spinner {
-  width: 30px;
-  height: 30px;
-  border: 3px solid rgba(255, 255, 255, 0.18);
-  border-top-color: #22d3ee;
-  border-radius: 50%;
-  animation: gate-spin 0.8s linear infinite;
-}
-
-@keyframes gate-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
