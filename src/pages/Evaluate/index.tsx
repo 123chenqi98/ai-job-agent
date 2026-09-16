@@ -181,7 +181,11 @@ export default function Evaluate() {
       </header>
 
       <SectionCard title="岗位与 JD 输入">
-        {!arkConfigured ? (
+        {!config ? (
+          <div className={styles.notConfigured}>
+            <p className={styles.notConfiguredText}>正在读取服务配置…</p>
+          </div>
+        ) : !arkConfigured ? (
           <div className={styles.notConfigured}>
             <h3 className={styles.notConfiguredTitle}>尚未配置豆包凭证</h3>
             <p className={styles.notConfiguredText}>
