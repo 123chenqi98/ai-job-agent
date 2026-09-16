@@ -3,6 +3,12 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .header {
@@ -15,8 +21,22 @@
 }
 
 .title {
+  position: relative;
+  padding-left: 11px;
   font-size: 15px;
   font-weight: 600;
+}
+
+.title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 15px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-violet) 100%);
 }
 
 .extra {

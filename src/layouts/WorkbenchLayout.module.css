@@ -5,11 +5,15 @@
 
 /* 左侧深色导航 */
 .sidebar {
+  position: relative;
   width: 228px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: var(--color-sidebar-bg);
+  background:
+    radial-gradient(320px 220px at -20% -4%, rgba(34, 211, 238, 0.12), transparent 70%),
+    radial-gradient(300px 240px at 120% 108%, rgba(124, 58, 237, 0.14), transparent 72%),
+    var(--color-sidebar-bg);
   border-right: 1px solid var(--color-sidebar-border);
 }
 
@@ -28,9 +32,9 @@
   width: 28px;
   height: 28px;
   color: #fff;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
   border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 3px 10px rgba(99, 102, 241, 0.45);
 }
 
 .brandName {
@@ -48,6 +52,7 @@
 }
 
 .navItem {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -57,12 +62,14 @@
   color: var(--color-sidebar-text);
   transition:
     background-color var(--transition-fast),
-    color var(--transition-fast);
+    color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .navItem:hover {
   background: var(--color-sidebar-hover);
   color: var(--color-sidebar-text-strong);
+  transform: translateX(2px);
 }
 
 .navItemActive,
@@ -70,6 +77,7 @@
   background: var(--color-sidebar-active);
   color: var(--color-sidebar-text-strong);
   font-weight: 600;
+  transform: translateX(0);
   box-shadow: inset 3px 0 0 var(--color-sidebar-active-border);
 }
 
@@ -81,10 +89,12 @@
   height: 18px;
   flex-shrink: 0;
   opacity: 0.9;
+  transition: color var(--transition-fast);
 }
 
 .navItemActive .navIcon {
   opacity: 1;
+  color: var(--color-sidebar-active-border);
 }
 
 .sidebarFooter {
@@ -96,13 +106,13 @@
   border-top: 1px solid var(--color-sidebar-border);
 }
 
-/* 右侧主区域 */
+/* 右侧主区域：透明以透出全局淡彩氛围，顶栏与卡片自带白底 */
 .main {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: var(--color-bg);
+  background: transparent;
 }
 
 .topbar {

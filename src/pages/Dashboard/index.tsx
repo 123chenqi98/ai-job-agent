@@ -63,6 +63,42 @@ function IconArrow() {
   )
 }
 
+function IconInterview() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.9-.9L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5z" />
+      <path d="M8 11h.01M12 11h.01M16 11h.01" />
+    </svg>
+  )
+}
+
+function IconFollow() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+function IconOffer() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="9" r="5" />
+      <path d="M9 13.2 8 22l4-2.2L16 22l-1-8.8" />
+    </svg>
+  )
+}
+
+function IconTrend() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m3 17 6-6 4 4 8-8" />
+      <path d="M21 7v6h-6" />
+    </svg>
+  )
+}
+
 // 截止文案形如 2026/10/17、2026-10-17，提取出日期；「招满即止」等返回 null
 function parseDeadline(text: string | null): Date | null {
   if (!text) return null
@@ -181,7 +217,8 @@ export default function Dashboard() {
       label: '面试中',
       value: interviewItems.length,
       hint: '面试流程中的岗位',
-      tone: styles.toneWarning,
+      cardTone: styles.toneViolet,
+      icon: <IconInterview />,
       to: '/board',
     },
     {
@@ -189,7 +226,8 @@ export default function Dashboard() {
       label: '跟进中',
       value: followItems.length,
       hint: '已投递 / 笔试，等待回应',
-      tone: styles.tonePrimary,
+      cardTone: styles.tonePrimary,
+      icon: <IconFollow />,
       to: '/board',
     },
     {
@@ -197,7 +235,8 @@ export default function Dashboard() {
       label: 'Offer',
       value: offerCount,
       hint: '已拿到 Offer 的岗位',
-      tone: styles.toneSuccess,
+      cardTone: styles.toneSuccess,
+      icon: <IconOffer />,
       to: '/board',
     },
     {
@@ -205,7 +244,8 @@ export default function Dashboard() {
       label: '27 届在招',
       value: meta?.totals.target27 ?? '—',
       hint: '飞书总表 27 届口径',
-      tone: '',
+      cardTone: styles.toneIndigo,
+      icon: <IconTrend />,
       to: '/jobs',
     },
   ]
@@ -225,7 +265,7 @@ export default function Dashboard() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.hero}>
+      <header className={styles.hero} style={{ animationDelay: '0ms' }}>
         <div>
           <p className={styles.heroDate}>{todayText}</p>
           <h1 className={styles.heroTitle}>今日工作台</h1>
@@ -252,10 +292,18 @@ export default function Dashboard() {
       ) : null}
 
       <div className={styles.statsGrid}>
-        {kpis.map((kpi) => (
-          <Link key={kpi.key} to={kpi.to} className={styles.statCard}>
-            <span className={styles.statLabel}>{kpi.label}</span>
-            <span className={`${styles.statValue} ${kpi.tone}`}>{kpi.value}</span>
+        {kpis.map((kpi, index) => (
+          <Link
+            key={kpi.key}
+            to={kpi.to}
+            className={`${styles.statCard} ${kpi.cardTone}`}
+            style={{ animationDelay: `${120 + index * 70}ms` }}
+          >
+            <span className={styles.statTop}>
+              <span className={styles.statLabel}>{kpi.label}</span>
+              <span className={styles.statIcon}>{kpi.icon}</span>
+            </span>
+            <span className={styles.statValue}>{kpi.value}</span>
             <span className={styles.statHint}>{kpi.hint}</span>
           </Link>
         ))}
@@ -383,19 +431,19 @@ export default function Dashboard() {
 
           <SectionCard title="快捷入口">
             <div className={styles.quickGrid}>
-              <Link to="/jobs" className={styles.quickItem}>
+              <Link to="/jobs" className={`${styles.quickItem} ${styles.qiPrimary}`}>
                 <span className={styles.quickIcon}><IconPool /></span>
                 <span>逛岗位池</span>
               </Link>
-              <Link to="/evaluate" className={styles.quickItem}>
+              <Link to="/evaluate" className={`${styles.quickItem} ${styles.qiViolet}`}>
                 <span className={styles.quickIcon}><IconEval /></span>
                 <span>评估岗位</span>
               </Link>
-              <Link to="/board" className={styles.quickItem}>
+              <Link to="/board" className={`${styles.quickItem} ${styles.qiTeal}`}>
                 <span className={styles.quickIcon}><IconBoard /></span>
                 <span>投递看板</span>
               </Link>
-              <Link to="/resume" className={styles.quickItem}>
+              <Link to="/resume" className={`${styles.quickItem} ${styles.qiIndigo}`}>
                 <span className={styles.quickIcon}><IconResume /></span>
                 <span>我的简历</span>
               </Link>

@@ -4,17 +4,20 @@
   gap: 20px;
 }
 
-/* 顶部问候区：渐变底，一句话给出今天的行动重点 */
+/* 顶部问候区：淡彩渐变底，一句话给出今天的行动重点 */
 .hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   padding: 22px 26px;
-  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-surface) 60%);
+  background:
+    radial-gradient(420px 200px at 100% 0%, rgba(124, 58, 237, 0.1), transparent 70%),
+    linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-violet-light) 48%, var(--color-surface) 100%);
   border: 1px solid var(--color-primary-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
+  animation: fadeUp 0.45s var(--transition-lift) both;
 }
 
 .heroDate {
@@ -40,15 +43,24 @@
   padding: 9px 18px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--color-surface);
-  background: var(--color-primary);
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-indigo) 100%);
   border-radius: var(--radius-md);
-  transition: background 0.15s ease;
+  box-shadow: 0 4px 12px -3px rgba(37, 99, 235, 0.4);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
 }
 
 .heroCta:hover {
-  background: var(--color-primary-hover);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 8px 18px -4px rgba(79, 70, 229, 0.45);
+  transform: translateY(-1px);
+}
+
+.heroCta:hover svg {
+  transform: translateX(2px);
+}
+
+.heroCta svg {
+  transition: transform var(--transition-base);
 }
 
 /* 零数据新手引导条 */
@@ -100,24 +112,48 @@
 .statCard {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   padding: 16px 20px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+  animation: fadeUp 0.5s var(--transition-lift) both;
+  transition: box-shadow var(--transition-base), transform var(--transition-base),
+    border-color var(--transition-base);
 }
 
 .statCard:hover {
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-  border-color: var(--color-primary-border);
+  transform: translateY(-3px);
+}
+
+.statTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .statLabel {
   font-size: 13px;
   color: var(--color-text-secondary);
+}
+
+.statIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  transition: transform var(--transition-base);
+}
+
+.statCard:hover .statIcon {
+  transform: scale(1.08);
 }
 
 .statValue {
@@ -132,17 +168,22 @@
   color: var(--color-text-disabled);
 }
 
-.toneSuccess {
-  color: var(--color-score-high);
-}
+/* 四张 KPI 的色调：数字 + 图标块 + hover 描边同色 */
+.toneViolet .statValue { color: var(--color-violet); }
+.toneViolet .statIcon { color: var(--color-violet); background: var(--color-violet-light); }
+.toneViolet:hover { border-color: var(--color-violet-border); }
 
-.tonePrimary {
-  color: var(--color-primary);
-}
+.tonePrimary .statValue { color: var(--color-primary); }
+.tonePrimary .statIcon { color: var(--color-primary); background: var(--color-primary-light); }
+.tonePrimary:hover { border-color: var(--color-primary-border); }
 
-.toneWarning {
-  color: var(--color-score-mid);
-}
+.toneSuccess .statValue { color: var(--color-score-high); }
+.toneSuccess .statIcon { color: var(--color-score-high); background: var(--color-success-light); }
+.toneSuccess:hover { border-color: var(--color-success-border); }
+
+.toneIndigo .statValue { color: var(--color-indigo); }
+.toneIndigo .statIcon { color: var(--color-indigo); background: var(--color-indigo-light); }
+.toneIndigo:hover { border-color: var(--color-indigo-border); }
 
 /* 主体两栏：左侧跟进与截止，右侧评估与入口 */
 .mainGrid {
@@ -441,12 +482,13 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color var(--transition-base), background var(--transition-base),
+    transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 .quickItem:hover {
-  border-color: var(--color-primary-border);
-  background: var(--color-primary-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
 }
 
 .quickIcon {
@@ -459,7 +501,24 @@
   color: var(--color-primary);
   background: var(--color-primary-light);
   border-radius: var(--radius-md);
+  transition: transform var(--transition-base);
 }
+
+.quickItem:hover .quickIcon {
+  transform: scale(1.1);
+}
+
+.qiPrimary:hover { border-color: var(--color-primary-border); background: var(--color-primary-light); }
+.qiPrimary .quickIcon { color: var(--color-primary); background: var(--color-primary-light); }
+
+.qiViolet:hover { border-color: var(--color-violet-border); background: var(--color-violet-light); }
+.qiViolet .quickIcon { color: var(--color-violet); background: var(--color-violet-light); }
+
+.qiTeal:hover { border-color: var(--color-teal-border); background: var(--color-teal-light); }
+.qiTeal .quickIcon { color: var(--color-teal); background: var(--color-teal-light); }
+
+.qiIndigo:hover { border-color: var(--color-indigo-border); background: var(--color-indigo-light); }
+.qiIndigo .quickIcon { color: var(--color-indigo); background: var(--color-indigo-light); }
 
 @media (max-width: 1200px) {
   .mainGrid {

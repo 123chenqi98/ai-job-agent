@@ -51,6 +51,20 @@
   --color-score-mid: #d97706;
   --color-score-low: #dc2626;
 
+  /* 柔和辅助色板（浅底点缀，配合既有蓝主色，仅用于 KPI/图标/标签等轻量元素） */
+  --color-indigo: #4f46e5;
+  --color-indigo-light: #eef2ff;
+  --color-indigo-border: #d6defc;
+  --color-teal: #0d9488;
+  --color-teal-light: #f0fdfa;
+  --color-teal-border: #bcebe4;
+  --color-violet: #7c3aed;
+  --color-violet-light: #f5f3ff;
+  --color-violet-border: #e2d9fb;
+  --color-rose: #e11d74;
+  --color-rose-light: #fdf2f8;
+  --color-rose-border: #f7d0e4;
+
   /* 间距 */
   --space-1: 4px;
   --space-2: 8px;
@@ -78,6 +92,7 @@
   /* 动效 */
   --transition-fast: 120ms ease;
   --transition-base: 180ms ease;
+  --transition-lift: 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
 
   /* 字体 */
   --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
@@ -102,6 +117,19 @@ body {
   color: var(--color-text);
   background-color: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+}
+
+/* 极淡彩色氛围：两团低饱和径向光，仅作背景层次，不干扰内容对比 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(560px 360px at 8% -6%, rgba(37, 99, 235, 0.08), transparent 70%),
+    radial-gradient(620px 400px at 100% 0%, rgba(124, 58, 237, 0.06), transparent 72%),
+    radial-gradient(720px 480px at 50% 118%, rgba(13, 148, 136, 0.06), transparent 70%);
 }
 
 h1,
@@ -172,4 +200,31 @@ textarea:focus-visible {
 
 ::selection {
   background: rgba(37, 99, 235, 0.16);
+}
+
+/* 通用进场：内容块轻微上浮淡入，模块内通过 animation-delay 做错落 */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import SectionCard from '@/components/common/SectionCard'
 import StateView from '@/components/common/StateView'
 import FeishuJobTable from '@/components/FeishuJobTable'
@@ -68,6 +68,24 @@ export default function JobPool() {
   useEffect(() => {
     ensureBootstrap()
   }, [ensureBootstrap])
+
+  // 无限滚动：底部哨兵进入视口（提前 320px）即自动拉下一页，无需手动点「加载更多」
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || !hasMore) return
+    if (typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !loadingMore && !searching) {
+          void loadMoreJobs()
+        }
+      },
+      { rootMargin: '320px 0px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, loadingMore, searching, items.length, loadMoreJobs])
 
   const [onboardVisible, setOnboardVisible] = useState(() => {
     try {
@@ -398,16 +416,19 @@ export default function JobPool() {
         </SectionCard>
       )}
 
-      {hasMore && items.length > 0 ? (
+      {items.length > 0 ? (
         <div className={styles.loadMoreWrap}>
-          <button
-            type="button"
-            className={styles.loadMoreButton}
-            disabled={loadingMore || searching}
-            onClick={() => void loadMoreJobs()}
-          >
-            {loadingMore ? '加载中…' : `加载更多（还有 ${remaining} 个）`}
-          </button>
+          <div ref={sentinelRef} className={styles.scrollSentinel} aria-hidden="true" />
+          {loadingMore ? (
+            <span className={styles.loadState}>
+              <span className={styles.miniSpinner} aria-hidden="true" />
+              正在加载更多岗位…
+            </span>
+          ) : hasMore ? (
+            <span className={styles.loadHint}>向下滚动自动加载（还有 {remaining} 个）</span>
+          ) : (
+            <span className={styles.loadDone}>已加载全部 {total} 个岗位</span>
+          )}
         </div>
       ) : null}
 
