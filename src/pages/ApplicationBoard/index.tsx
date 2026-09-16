@@ -48,18 +48,22 @@ export default function ApplicationBoard() {
 
   // 实时测量信息总览高度并写入 CSS 变量，列头行据此吸顶在总览正下方；
   // 窄屏（≤960px）洞察卡换行导致总览变高时也能自动跟随，不能写死像素。
+  // 必须随 status 重跑：冷加载时序为 idle(主树空数据) → loading(主树被全屏态替换、
+  // 旧总览脱离文档) → ready(主树以新节点重新挂载)；deps 为空会监听到旧节点的 0 尺寸
+  // 回调且永远观察不到新节点，导致变量停在 0px、列头错误地吸到页面顶部。
   useEffect(() => {
     const page = pageRef.current
     const overview = overviewRef.current
     if (!page || !overview) return
     const update = () => {
-      page.style.setProperty('--overview-stuck-height', `${overview.offsetHeight}px`)
+      const height = overview.offsetHeight
+      if (height > 0) page.style.setProperty('--overview-stuck-height', `${height}px`)
     }
     update()
     const observer = new ResizeObserver(update)
     observer.observe(overview)
     return () => observer.disconnect()
-  }, [])
+  }, [status])
 
   const items: FeishuApplicationItem[] = useMemo(() => data?.items ?? [], [data])
 
