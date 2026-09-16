@@ -133,16 +133,23 @@ export default function FeishuBoard({ groups }: { groups: FeishuBoardGroup[] }) 
   const syncingRef = useRef(false)
 
   // 列头行与卡片体是两个独立的横向滚动容器：任一容器横向滚动时把 scrollLeft 同步给另一个，
-  // 保证吸顶列名与下方列始终对齐；syncingRef 防止程序化赋值回灌触发递归。
+  // 保证吸顶列名与下方列始终对齐。syncingRef 防止程序化赋值回灌触发递归；
+  // 锁必须保证一定释放——后台/节流标签页里 rAF 会被冻结，所以再挂一个 120ms 定时器兜底，
+  // 否则一旦锁未释放，后续所有横向同步都会静默失效。
   const handleScroll = (source: 'header' | 'body') => (event: UIEvent<HTMLDivElement>) => {
     if (syncingRef.current) return
     const target = source === 'header' ? bodyScrollRef.current : headerScrollRef.current
     if (!target) return
     syncingRef.current = true
     target.scrollLeft = event.currentTarget.scrollLeft
-    requestAnimationFrame(() => {
+    let released = false
+    const release = () => {
+      if (released) return
+      released = true
       syncingRef.current = false
-    })
+    }
+    requestAnimationFrame(() => requestAnimationFrame(release))
+    window.setTimeout(release, 120)
   }
 
   return (
