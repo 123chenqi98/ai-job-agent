@@ -18,3 +18,8 @@ export async function login(
     retryAfter: typeof json?.retry_after === 'number' ? json.retry_after : undefined,
   }
 }
+
+// 主动上锁：清除 7 天免密 Cookie，回到密码卡片（共用电脑场景）
+export async function logout(): Promise<void> {
+  await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined)
+}

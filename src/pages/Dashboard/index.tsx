@@ -148,11 +148,14 @@ interface UrgentRow {
 export default function Dashboard() {
   const {
     bootstrapStatus,
+    bootstrapError,
     items: jobItems,
     meta,
     ensureBootstrap,
+    bootstrap,
   } = useJobsStore()
-  const { data: board, status: boardStatus, ensureLoaded } = useBoardStore()
+  const { data: board, status: boardStatus, error: boardError, ensureLoaded, refresh } =
+    useBoardStore()
 
   // 首次进入工作台即预热两份缓存，之后切到岗位池 / 看板不再请求
   useEffect(() => {
@@ -276,6 +279,30 @@ export default function Dashboard() {
           <IconArrow />
         </Link>
       </header>
+
+      {bootstrapStatus === 'error' && bootstrapError ? (
+        <div className={styles.dataWarn} role="alert">
+          <div className={styles.dataWarnBody}>
+            <span className={styles.dataWarnTitle}>岗位池数据暂时没同步成功</span>
+            <span>下方「27 届在招」与「临近截止」可能不完整，看板数据不受影响。原因：{bootstrapError}</span>
+          </div>
+          <button type="button" className={styles.dataWarnAction} onClick={() => void bootstrap()}>
+            重新同步
+          </button>
+        </div>
+      ) : null}
+
+      {boardStatus === 'error' && boardError ? (
+        <div className={styles.dataWarn} role="alert">
+          <div className={styles.dataWarnBody}>
+            <span className={styles.dataWarnTitle}>投递看板暂时没同步成功</span>
+            <span>下方面试 / 跟进 / Offer 统计可能显示为 0，岗位池数据不受影响。原因：{boardError}</span>
+          </div>
+          <button type="button" className={styles.dataWarnAction} onClick={() => void refresh()}>
+            重新同步
+          </button>
+        </div>
+      ) : null}
 
       {showStarter ? (
         <section className={styles.starter}>

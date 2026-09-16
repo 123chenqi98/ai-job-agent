@@ -54,12 +54,14 @@ export function mapJobRecords(records: BitableRecord[]): FeishuJobItem[] {
 // 构造飞书 search 过滤条件。
 // 飞书 filter 仅支持单层 and/or：有关键词且有结构化筛选时，关键词只匹配岗位名称；
 // 仅有关键词时用 or 同时匹配公司名与岗位名。
+// 工作地点是多选项（一条岗位常选「北京、上海、…」多个城市），必须用 contains
+// 「包含该选项」，is 精确匹配会把多城市岗位全部漏掉。
 export function buildJobFilter(query: JobQuery): unknown {
   const keyword = query.keyword?.trim()
   const facets = [
-    { field: '招聘对象', value: query.target?.trim() },
-    { field: '学历', value: query.degree?.trim() },
-    { field: '工作地点', value: query.city?.trim() },
+    { field: '招聘对象', value: query.target?.trim(), operator: 'is' },
+    { field: '学历', value: query.degree?.trim(), operator: 'is' },
+    { field: '工作地点', value: query.city?.trim(), operator: 'contains' },
   ].filter((c) => c.value)
 
   if (keyword) {
@@ -70,7 +72,7 @@ export function buildJobFilter(query: JobQuery): unknown {
           { field_name: '招聘岗位', operator: 'contains', value: [keyword] },
           ...facets.map((c) => ({
             field_name: c.field,
-            operator: 'is',
+            operator: c.operator,
             value: [c.value as string],
           })),
         ],
@@ -89,7 +91,7 @@ export function buildJobFilter(query: JobQuery): unknown {
       conjunction: 'and',
       conditions: facets.map((c) => ({
         field_name: c.field,
-        operator: 'is',
+        operator: c.operator,
         value: [c.value as string],
       })),
     }

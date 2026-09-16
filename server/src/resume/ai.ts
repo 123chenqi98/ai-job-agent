@@ -79,6 +79,144 @@ export interface BulletRewrites {
 const FACT_RULES =
   '铁律：只能依据简历中明确出现的事实作答，禁止编造任何公司、项目、指标数字、奖项或经历；信息不足时给空数组或如实说明。全部使用简体中文。严格只输出一个 JSON 对象，不要输出任何解释或 markdown。'
 
+// ---- 输出结构兜底 ----
+// 模型偶发漏字段 / 把数组输出成字符串 / 分数越界；前端直接 .map 会整站白屏，
+// 这里在服务端统一归一化为接口契约（只做结构修正，不编造内容）。
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function asString(value: unknown, fallback = ''): string {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  return fallback
+}
+
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((v) => asString(v)).filter((v) => v.trim())
+  if (typeof value === 'string') return value ? [value] : []
+  return []
+}
+
+function clampScore(value: unknown, fallback = 0): number {
+  const num = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(num)) return fallback
+  return Math.max(0, Math.min(100, Math.round(num)))
+}
+
+function asEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === 'string' && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : fallback
+}
+
+function normalizeProfile(raw: unknown): AiProfile {
+  const r = asRecord(raw)
+  const exp = Array.isArray(r.experience_map) ? r.experience_map : []
+  return {
+    summary: asString(r.summary),
+    target_roles: asStringArray(r.target_roles),
+    core_competencies: asStringArray(r.core_competencies),
+    hard_skills: asStringArray(r.hard_skills),
+    tools: asStringArray(r.tools),
+    strengths: asStringArray(r.strengths),
+    weaknesses: asStringArray(r.weaknesses),
+    experience_map: exp.map((item) => {
+      const e = asRecord(item)
+      return {
+        period: asString(e.period),
+        org: asString(e.org),
+        title: asString(e.title),
+        bullets: asStringArray(e.bullets),
+      }
+    }),
+  }
+}
+
+const DIMENSION_KEYS = ['hard_gate', 'skill', 'experience', 'direction'] as const
+const DEAL_STATUSES = ['pass', 'fail', 'unknown'] as const
+
+function normalizeMatch(raw: unknown): JdMatch {
+  const r = asRecord(raw)
+  const dimensions = Array.isArray(r.dimension_scores) ? r.dimension_scores : []
+  return {
+    score: clampScore(r.score),
+    level: asEnum(r.level, ['high', 'medium', 'low'] as const, 'medium'),
+    decision: asString(r.decision),
+    deal_breakers: (Array.isArray(r.deal_breakers) ? r.deal_breakers : []).map((item) => {
+      const d = asRecord(item)
+      return {
+        item: asString(d.item),
+        status: asEnum(d.status, DEAL_STATUSES, 'unknown'),
+        note: asString(d.note),
+      }
+    }),
+    dimension_scores: dimensions
+      .map((item) => {
+        const d = asRecord(item)
+        return {
+          key: asEnum(d.key, DIMENSION_KEYS, 'skill'),
+          label: asString(d.label),
+          score: clampScore(d.score),
+          reason: asString(d.reason),
+        }
+      })
+      .slice(0, 4),
+    matched: (Array.isArray(r.matched) ? r.matched : []).map((item) => {
+      const m = asRecord(item)
+      return { point: asString(m.point), evidence: asString(m.evidence) }
+    }),
+    gaps: (Array.isArray(r.gaps) ? r.gaps : []).map((item) => {
+      const g = asRecord(item)
+      return { gap: asString(g.gap), suggestion: asString(g.suggestion) }
+    }),
+    conclusion: asString(r.conclusion),
+  }
+}
+
+function normalizeRewrites(raw: unknown): BulletRewrites {
+  const r = asRecord(raw)
+  return {
+    coverage_score: clampScore(r.coverage_score),
+    keywords_to_cover: asStringArray(r.keywords_to_cover),
+    rewrites: (Array.isArray(r.rewrites) ? r.rewrites : []).map((item) => {
+      const w = asRecord(item)
+      return {
+        original: asString(w.original),
+        version_a: asString(w.version_a),
+        version_b: asString(w.version_b),
+        reason: asString(w.reason),
+      }
+    }),
+    new_bullets: asStringArray(r.new_bullets),
+    tips: asStringArray(r.tips),
+  }
+}
+
+const QUESTION_CATEGORIES = ['technical', 'project', 'behavioral'] as const
+const DIFFICULTIES = ['high', 'mid', 'low'] as const
+
+function normalizeInterviewPrep(raw: unknown): InterviewPrep {
+  const r = asRecord(raw)
+  return {
+    overview: asString(r.overview),
+    questions: (Array.isArray(r.questions) ? r.questions : []).map((item) => {
+      const q = asRecord(item)
+      return {
+        category: asEnum(q.category, QUESTION_CATEGORIES, 'technical'),
+        question: asString(q.question),
+        difficulty: asEnum(q.difficulty, DIFFICULTIES, 'mid'),
+        answer_points: asStringArray(q.answer_points),
+        resume_anchor: asString(q.resume_anchor),
+      }
+    }),
+    topics_to_review: asStringArray(r.topics_to_review),
+    questions_to_ask: asStringArray(r.questions_to_ask),
+  }
+}
+
 export async function buildAiProfile(resumeText: string): Promise<AiProfile> {
   const system = [
     '你是资深数据分析师求职教练，负责把简历原文结构化为候选人画像。',
@@ -96,7 +234,7 @@ export async function buildAiProfile(resumeText: string): Promise<AiProfile> {
     '}',
     'experience_map 需把简历中的 bullet 尽量准确归属到对应实习/项目；分数与数字必须来自原文。',
   ].join('\n')
-  return chatJson<AiProfile>(system, `简历原文：\n\n${resumeText}`)
+  return normalizeProfile(await chatJson<unknown>(system, `简历原文：\n\n${resumeText}`))
 }
 
 export async function matchJd(
@@ -117,7 +255,9 @@ export async function matchJd(
   const metaLine = jobMeta?.company || jobMeta?.title
     ? `目标岗位：${[jobMeta.company, jobMeta.title].filter(Boolean).join(' · ')}\n`
     : ''
-  return chatJson<JdMatch>(system, `${metaLine}JD 原文：\n${jdText}\n\n候选人简历：\n\n${resumeText}`)
+  return normalizeMatch(
+    await chatJson<unknown>(system, `${metaLine}JD 原文：\n${jdText}\n\n候选人简历：\n\n${resumeText}`),
+  )
 }
 
 export async function rewriteBullets(
@@ -136,9 +276,11 @@ export async function rewriteBullets(
   const metaLine = jobMeta?.company || jobMeta?.title
     ? `目标岗位：${[jobMeta.company, jobMeta.title].filter(Boolean).join(' · ')}\n`
     : ''
-  return chatJson<BulletRewrites>(
-    system,
-    `${metaLine}JD 原文：\n${jdText}\n\n候选人简历：\n\n${resumeText}`,
+  return normalizeRewrites(
+    await chatJson<unknown>(
+      system,
+      `${metaLine}JD 原文：\n${jdText}\n\n候选人简历：\n\n${resumeText}`,
+    ),
   )
 }
 
@@ -159,8 +301,10 @@ export async function buildInterviewPrep(
   const metaLine = jobMeta?.company || jobMeta?.title
     ? `目标岗位：${[jobMeta.company, jobMeta.title].filter(Boolean).join(' · ')}\n`
     : ''
-  return chatJson<InterviewPrep>(
-    system,
-    `${metaLine}JD 原文：\n${jdText}\n\n候选人简历：\n\n${resumeText}`,
+  return normalizeInterviewPrep(
+    await chatJson<unknown>(
+      system,
+      `${metaLine}JD 原文：\n${jdText}\n\n候选人简历：\n\n${resumeText}`,
+    ),
   )
 }

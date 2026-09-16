@@ -50,6 +50,21 @@
   cursor: default;
 }
 
+.lockButton {
+  padding: 7px 14px;
+  font-size: 13px;
+  color: var(--color-danger);
+  background: var(--color-surface);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.lockButton:hover {
+  background: var(--color-danger-light);
+  border-color: var(--color-danger);
+}
+
 .syncMeta {
   font-size: 12px;
   color: var(--color-text-disabled);

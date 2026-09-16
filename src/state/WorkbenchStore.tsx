@@ -214,6 +214,11 @@ export function WorkbenchDataProvider({ children }: { children: ReactNode }) {
       if (listAbortRef.current === controller) {
         loadingMoreRef.current = false
         setLoadingMore(false)
+      } else {
+        // 本次翻页已被更新的筛选查询取代（abort）：仍必须复位自己的加载标记，
+        // 否则 loadingMore 永久卡在 true，无限滚动与刷新按钮一起死锁
+        loadingMoreRef.current = false
+        setLoadingMore(false)
       }
     }
   }, [applyPage])

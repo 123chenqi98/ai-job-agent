@@ -37,12 +37,19 @@ function levelText(level: EvalRecord['level']): string {
 }
 
 export default function HistoryPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const deepId = searchParams.get('id')
   const [records, setRecords] = useState<EvalRecord[]>(() => listEvalRecords())
   // 从投递看板「评估报告」带 ?id= 进入时自动展开对应记录
   const [selectedId, setSelectedId] = useState<string | null>(deepId)
+  const [deepDismissed, setDeepDismissed] = useState(false)
   const reportRef = useRef<HTMLDivElement | null>(null)
+
+  const dismissDeepMiss = () => {
+    setDeepDismissed(true)
+    setSelectedId(null)
+    setSearchParams({}, { replace: true })
+  }
 
   // 展开记录后平滑滚动到报告（深链直达与手动展开均生效）
   useEffect(() => {
@@ -71,6 +78,7 @@ export default function HistoryPage() {
   }
 
   const selected = records.find((r) => r.id === selectedId) ?? null
+  const deepMiss = Boolean(deepId && !deepDismissed && !records.some((r) => r.id === deepId))
 
   return (
     <div className={styles.page}>
@@ -81,6 +89,23 @@ export default function HistoryPage() {
         </p>
         <EvaluateTabs />
       </header>
+
+      {deepMiss ? (
+        <div className={styles.deepMiss} role="alert">
+          <div>
+            <strong>找不到链接对应的评估记录</strong>
+            评估历史只保存在当前浏览器本机；换设备、清除过浏览器数据，或打开的是别人分享的链接时，这条记录不会存在。
+          </div>
+          <div className={styles.deepMissActions}>
+            <button type="button" className={styles.deepMissButton} onClick={dismissDeepMiss}>
+              知道了
+            </button>
+            <Link to="/evaluate" className={`${styles.deepMissButton} ${styles.deepMissPrimary}`}>
+              去评估一个岗位
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       {records.length === 0 ? (
         <SectionCard>

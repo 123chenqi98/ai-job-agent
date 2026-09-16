@@ -14,6 +14,7 @@ import { parseResumePdf } from './resume/pdf.js'
 import { extractRuleProfile } from './resume/profile.js'
 import { buildAiProfile, buildInterviewPrep, matchJd, rewriteBullets } from './resume/ai.js'
 import { isArkConfigured, LlmApiError } from './llm/ark.js'
+import { createIpRateLimit } from './rateLimit.js'
 
 const app = express()
 // 线上在 Nginx HTTPS 反代之后：信任首层代理以正确识别 req.secure / 客户端 IP（Cookie Secure 与限次依赖）
@@ -109,8 +110,11 @@ function pickJobMeta(body: unknown): { company?: string; title?: string } {
   }
 }
 
+// AI 接口保持公开（与产品口径一致：访客可直接做岗位评估），但按 IP 限频防刷豆包账单
+const aiRateLimit = createIpRateLimit({ windowMs: 10 * 60 * 1000, max: 60 })
+
 // AI 深度画像：豆包把简历结构化为能力/亮点/短板/经历归属
-app.post('/api/resume/ai-profile', async (_req, res) => {
+app.post('/api/resume/ai-profile', aiRateLimit, async (_req, res) => {
   if (!isArkConfigured()) {
     arkNotConfigured(res)
     return
@@ -125,7 +129,7 @@ app.post('/api/resume/ai-profile', async (_req, res) => {
 })
 
 // JD 精匹配：粘贴完整 JD，输出可解释评分、命中证据与缺口
-app.post('/api/resume/match', async (req, res) => {
+app.post('/api/resume/match', aiRateLimit, async (req, res) => {
   if (!isArkConfigured()) {
     arkNotConfigured(res)
     return
@@ -145,7 +149,7 @@ app.post('/api/resume/match', async (req, res) => {
 })
 
 // 定向 bullet 改写：A 岗位定向版 + B 量化强化版
-app.post('/api/resume/rewrite', async (req, res) => {
+app.post('/api/resume/rewrite', aiRateLimit, async (req, res) => {
   if (!isArkConfigured()) {
     arkNotConfigured(res)
     return
@@ -165,7 +169,7 @@ app.post('/api/resume/rewrite', async (req, res) => {
 })
 
 // 面试准备包：JD + 简历生成预测面试题、答题要点与反问清单
-app.post('/api/resume/interview-prep', async (req, res) => {
+app.post('/api/resume/interview-prep', aiRateLimit, async (req, res) => {
   if (!isArkConfigured()) {
     arkNotConfigured(res)
     return

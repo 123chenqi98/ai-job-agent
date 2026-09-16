@@ -199,6 +199,49 @@
   gap: 8px;
 }
 
+/* 深链 ?id= 在本机找不到对应记录时的明确提示（换设备/清缓存/他人链接） */
+.deepMiss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  background: var(--color-warning-light);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-lg);
+}
+
+.deepMiss strong {
+  display: block;
+  font-size: 13px;
+  color: var(--color-warning);
+}
+
+.deepMissActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.deepMissButton {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.deepMissPrimary {
+  color: #fff;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
 .emptyTitle {
   margin: 0 0 4px;
   font-size: 14px;

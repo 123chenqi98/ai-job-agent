@@ -36,18 +36,33 @@ export function toDateText(value: unknown): string | null {
 }
 
 // 超链接字段（type=15）：{ link, text } 或富文本数组中带 link 的段
+// 安全口径：飞书是多人可写的外部数据源，链接会渲染成 <a href>，
+// 仅允许 http/https，拦截 javascript:/data: 等存储型 XSS 向量
+function safeHttpUrl(raw: unknown): string | null {
+  if (!raw) return null
+  const text = String(raw).trim()
+  if (!text) return null
+  try {
+    const url = new URL(text, 'http://placeholder.invalid')
+    if (url.protocol === 'http:' || url.protocol === 'https:') return url.href
+    return null
+  } catch {
+    return null
+  }
+}
+
 export function toUrl(value: unknown): string | null {
   if (!value) return null
   if (Array.isArray(value)) {
     for (const seg of value) {
       if (seg && typeof seg === 'object' && 'link' in seg) {
-        return String((seg as Record<string, unknown>).link) || null
+        return safeHttpUrl((seg as Record<string, unknown>).link)
       }
     }
     return null
   }
   if (typeof value === 'object' && 'link' in value) {
-    return String((value as Record<string, unknown>).link) || null
+    return safeHttpUrl((value as Record<string, unknown>).link)
   }
   return null
 }

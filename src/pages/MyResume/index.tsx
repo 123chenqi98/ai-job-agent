@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { logout } from '@/auth/authClient'
 import LoginPage from '@/auth/LoginPage'
 import SectionCard from '@/components/common/SectionCard'
 import StateView from '@/components/common/StateView'
@@ -169,6 +170,13 @@ export default function MyResume() {
     }
   }
 
+  const handleLock = async () => {
+    await logout()
+    setResume(null)
+    setAiProfile(null)
+    setLocked(true)
+  }
+
   if (loading) {
     return (
       <div className={styles.page}>
@@ -227,6 +235,14 @@ export default function MyResume() {
         <div className={styles.headerActions}>
           <button type="button" className={styles.refreshButton} onClick={() => void load()}>
             重新解析
+          </button>
+          <button
+            type="button"
+            className={styles.lockButton}
+            title="立即清除本机解锁状态，下次查看需重新输入密码"
+            onClick={() => void handleLock()}
+          >
+            锁定简历
           </button>
           <span className={styles.syncMeta}>
             {source.file_name} · {source.pages} 页 · {formatTime(source.parsed_at)}
