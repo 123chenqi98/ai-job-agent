@@ -247,6 +247,10 @@
   background: var(--color-success);
 }
 
+.accentDanger {
+  background: var(--color-danger);
+}
+
 /* 本机岗位评估徽标：联动 localStorage 评估历史，点击回看完整报告 */
 .evalBadge {
   display: flex;

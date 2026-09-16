@@ -6,10 +6,24 @@ import { findEvalForJob } from '@/data/evaluationHistory'
 // 飞书看板与 Mock 看板视觉完全一致，直接复用既有看板样式，避免样式碎片
 import styles from '@/components/StatusBoard/StatusBoard.module.css'
 
+/** 展示用分组键：在数据列基础上，把「结束」列拆成 offer / rejected 两列 */
+export type FeishuBoardGroupKey = FeishuBoardColumn | 'offer' | 'rejected'
+
+export type FeishuBoardAccent = 'primary' | 'success' | 'warning' | 'danger' | 'neutral'
+
 export interface FeishuBoardGroup {
-  column: FeishuBoardColumn
+  column: FeishuBoardGroupKey
   label: string
   items: FeishuApplicationItem[]
+  accent: FeishuBoardAccent
+}
+
+const ACCENT_DOT_CLASS: Record<FeishuBoardAccent, string> = {
+  primary: styles.accentPrimary,
+  success: styles.accentSuccess,
+  warning: styles.accentWarning,
+  danger: styles.accentDanger,
+  neutral: styles.accentNeutral,
 }
 
 /** 日期精简为 MM/DD */
@@ -118,17 +132,7 @@ export default function FeishuBoard({ groups }: { groups: FeishuBoardGroup[] }) 
       {groups.map((group) => (
         <section key={group.column} className={styles.column}>
           <header className={styles.columnHeader}>
-            <span
-              className={`${styles.columnDot} ${
-                group.column === 'interview'
-                  ? styles.accentSuccess
-                  : group.column === 'written_test'
-                    ? styles.accentWarning
-                    : group.column === 'applied'
-                      ? styles.accentPrimary
-                      : styles.accentNeutral
-              }`}
-            />
+            <span className={`${styles.columnDot} ${ACCENT_DOT_CLASS[group.accent]}`} />
             <h3 className={styles.columnTitle}>{group.label}</h3>
             <span className={styles.countPill}>{group.items.length}</span>
           </header>

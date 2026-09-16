@@ -1,11 +1,21 @@
 import { useEffect, useMemo } from 'react'
+import type { BoardColumnKey } from '@/types'
 import type { FeishuApplicationItem } from '@/types/feishu'
 import { BOARD_COLUMNS } from '@/constants'
 import FeishuBoard from '@/components/FeishuBoard'
-import type { FeishuBoardGroup } from '@/components/FeishuBoard'
+import type { FeishuBoardAccent, FeishuBoardGroup } from '@/components/FeishuBoard'
 import StateView from '@/components/common/StateView'
 import { useBoardStore } from '@/state/WorkbenchStore'
 import styles from './ApplicationBoard.module.css'
+
+/** 各进行中列的列头配色；「结束」列不单列，改由 Offer / 已回绝两个分组承担 */
+const COLUMN_ACCENT: Partial<Record<BoardColumnKey, FeishuBoardAccent>> = {
+  todo: 'neutral',
+  ready: 'neutral',
+  applied: 'primary',
+  written_test: 'warning',
+  interview: 'success',
+}
 
 interface InsightItem {
   value: number
@@ -36,15 +46,29 @@ export default function ApplicationBoard() {
 
   const items: FeishuApplicationItem[] = useMemo(() => data?.items ?? [], [data])
 
-  const groups: FeishuBoardGroup[] = useMemo(
-    () =>
-      BOARD_COLUMNS.map((column) => ({
-        column: column.key,
-        label: column.label,
-        items: items.filter((item) => item.column === column.key),
-      })),
-    [items],
-  )
+  // 进行中列保持与 BOARD_COLUMNS 一致；「结束」列按结果拆成 Offer / 已回绝两个独立分组
+  const groups: FeishuBoardGroup[] = useMemo(() => {
+    const activeGroups = BOARD_COLUMNS.filter((column) => column.key !== 'closed').map((column) => ({
+      column: column.key,
+      label: column.label,
+      accent: COLUMN_ACCENT[column.key] ?? 'neutral',
+      items: items.filter((item) => item.column === column.key),
+    }))
+    const closedItems = items.filter((item) => item.column === 'closed')
+    const offerItems = closedItems.filter((item) => item.result === 'offer')
+    // result 非 offer 的结束记录统一归入「已回绝」，保证任何结束态卡片都不丢失
+    const rejectedItems = closedItems.filter((item) => item.result !== 'offer')
+    return [
+      ...activeGroups,
+      { column: 'offer' as const, label: 'Offer', accent: 'success' as const, items: offerItems },
+      {
+        column: 'rejected' as const,
+        label: '已回绝',
+        accent: 'danger' as const,
+        items: rejectedItems,
+      },
+    ]
+  }, [items])
 
   // 三个运营洞察均由飞书真实状态实时派生
   const insights: InsightItem[] = useMemo(() => {
@@ -106,40 +130,42 @@ export default function ApplicationBoard() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>投递看板</h1>
-          <p className={styles.subtitle}>
-            共 {items.length} 条投递记录，按飞书表「状态」自动归入 6 列；记录与状态均在飞书中维护。
-          </p>
-        </div>
-        <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.refreshButton}
-            disabled={refreshing}
-            onClick={() => void refresh()}
-          >
-            {refreshing ? '同步中…' : '刷新同步'}
-          </button>
-          {data?.generated_at ? (
-            <span className={styles.syncMeta}>缓存数据 · 最近同步：{formatSyncTime(data.generated_at)}</span>
-          ) : null}
-          {refreshError ? <span className={styles.refreshError}>刷新失败：{refreshError}</span> : null}
-        </div>
-      </header>
-
-      <section className={styles.insightRow}>
-        {insights.map((it) => (
-          <div key={it.label} className={styles.insightCard}>
-            <span className={`${styles.insightValue} ${it.tone}`}>{it.value}</span>
-            <div className={styles.insightText}>
-              <div className={styles.insightLabel}>{it.label}</div>
-              <div className={styles.insightHint}>{it.hint}</div>
-            </div>
+      <div className={styles.overview}>
+        <header className={styles.header}>
+          <div>
+            <h1 className={styles.title}>投递看板</h1>
+            <p className={styles.subtitle}>
+              共 {items.length} 条投递记录，按飞书表「状态」自动分列，Offer 与已回绝各自独立成列；记录与状态均在飞书中维护。
+            </p>
           </div>
-        ))}
-      </section>
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.refreshButton}
+              disabled={refreshing}
+              onClick={() => void refresh()}
+            >
+              {refreshing ? '同步中…' : '刷新同步'}
+            </button>
+            {data?.generated_at ? (
+              <span className={styles.syncMeta}>缓存数据 · 最近同步：{formatSyncTime(data.generated_at)}</span>
+            ) : null}
+            {refreshError ? <span className={styles.refreshError}>刷新失败：{refreshError}</span> : null}
+          </div>
+        </header>
+
+        <section className={styles.insightRow}>
+          {insights.map((it) => (
+            <div key={it.label} className={styles.insightCard}>
+              <span className={`${styles.insightValue} ${it.tone}`}>{it.value}</span>
+              <div className={styles.insightText}>
+                <div className={styles.insightLabel}>{it.label}</div>
+                <div className={styles.insightHint}>{it.hint}</div>
+              </div>
+            </div>
+          ))}
+        </section>
+      </div>
 
       {items.length === 0 ? (
         <StateView
