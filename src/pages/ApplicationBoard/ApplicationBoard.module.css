@@ -4,17 +4,22 @@
   gap: 20px;
 }
 
-/* 顶部信息总览：看板记录较多、向下滚动时吸顶固定，标题/刷新与 3 张洞察卡常驻 */
+/* 顶部信息总览：看板记录较多、向下滚动时吸顶固定，标题/刷新与 3 张洞察卡常驻。
+   top 取负的滚动容器 padding-top：粘附线默认落在 .content 的 padding 内边缘（y=80），
+   会在顶栏与总览之间留出 24px 缝让看板透出；上移 24px 后吸顶正好贴到滚动可视区顶（y=56）。
+   初始未滚动时总览仍在正常位置（80），24px 呼吸间距保留。 */
 .overview {
   position: sticky;
-  top: 0;
+  top: -24px;
   z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  /* 抵消内容区 24px 内边距，让吸顶底色与分隔线横向铺满；内部 padding 再把内容对齐回原位 */
-  margin: -24px -24px 0;
-  padding: 18px 24px 14px;
+  /* 仅横向用负外边距抵消内容区 24px 内边距，让吸顶底色横向铺满（内部横向 padding 再对齐回原位）。
+     竖向不能用负 margin：sticky 的 top:0 固定的是 margin box，竖向负 margin 会把可见层向下推，
+     吸顶时顶部反而露出缝隙，让下方看板卡片透出来。 */
+  margin: 0 -24px;
+  padding: 16px 24px 14px;
   background: var(--color-bg);
   border-bottom: 1px solid var(--color-border);
   box-shadow: 0 6px 14px -12px rgba(16, 24, 40, 0.35);
@@ -160,8 +165,9 @@
 /* 与 WorkbenchLayout 窄屏内容区内边距 14px 保持一致 */
 @media (max-width: 720px) {
   .overview {
-    margin: -14px -14px 0;
-    padding: 14px 14px 12px;
+    top: -14px;
+    margin: 0 -14px;
+    padding: 12px 14px;
     gap: 12px;
   }
 }
