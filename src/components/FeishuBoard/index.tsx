@@ -1,3 +1,4 @@
+import { useRef, type UIEvent } from 'react'
 import { Link } from 'react-router-dom'
 import Tag from '@/components/common/Tag'
 import type { TagTone } from '@/components/common/Tag'
@@ -127,25 +128,56 @@ function FeishuCard({ item }: { item: FeishuApplicationItem }) {
 }
 
 export default function FeishuBoard({ groups }: { groups: FeishuBoardGroup[] }) {
-  return (
-    <div className={styles.board}>
-      {groups.map((group) => (
-        <section key={group.column} className={styles.column}>
-          <header className={styles.columnHeader}>
-            <span className={`${styles.columnDot} ${ACCENT_DOT_CLASS[group.accent]}`} />
-            <h3 className={styles.columnTitle}>{group.label}</h3>
-            <span className={styles.countPill}>{group.items.length}</span>
-          </header>
+  const headerScrollRef = useRef<HTMLDivElement>(null)
+  const bodyScrollRef = useRef<HTMLDivElement>(null)
+  const syncingRef = useRef(false)
 
-          <div className={styles.cardList}>
-            {group.items.length > 0 ? (
-              group.items.map((item) => <FeishuCard key={item.record_id} item={item} />)
-            ) : (
-              <div className={styles.empty}>暂无记录</div>
-            )}
-          </div>
-        </section>
-      ))}
+  // 列头行与卡片体是两个独立的横向滚动容器：任一容器横向滚动时把 scrollLeft 同步给另一个，
+  // 保证吸顶列名与下方列始终对齐；syncingRef 防止程序化赋值回灌触发递归。
+  const handleScroll = (source: 'header' | 'body') => (event: UIEvent<HTMLDivElement>) => {
+    if (syncingRef.current) return
+    const target = source === 'header' ? bodyScrollRef.current : headerScrollRef.current
+    if (!target) return
+    syncingRef.current = true
+    target.scrollLeft = event.currentTarget.scrollLeft
+    requestAnimationFrame(() => {
+      syncingRef.current = false
+    })
+  }
+
+  return (
+    <div className={styles.boardWrap}>
+      <div
+        ref={headerScrollRef}
+        className={styles.headerScroller}
+        onScroll={handleScroll('header')}
+      >
+        <div className={styles.headerTrack}>
+          {groups.map((group) => (
+            <div key={group.column} className={styles.headerCell}>
+              <span className={`${styles.columnDot} ${ACCENT_DOT_CLASS[group.accent]}`} />
+              <h3 className={styles.columnTitle}>{group.label}</h3>
+              <span className={styles.countPill}>{group.items.length}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div ref={bodyScrollRef} className={styles.bodyScroller} onScroll={handleScroll('body')}>
+        <div className={styles.bodyTrack}>
+          {groups.map((group) => (
+            <section key={group.column} className={styles.column}>
+              <div className={styles.cardList}>
+                {group.items.length > 0 ? (
+                  group.items.map((item) => <FeishuCard key={item.record_id} item={item} />)
+                ) : (
+                  <div className={styles.empty}>暂无记录</div>
+                )}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

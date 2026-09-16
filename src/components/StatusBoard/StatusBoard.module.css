@@ -71,6 +71,63 @@
   background: var(--color-surface);
 }
 
+/* ===== 吸顶列头看板：列头行与卡片体拆成两个横向滚动容器（scrollLeft 由 JS 同步） ===== */
+.boardWrap {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 列头行自身相对外层滚动容器竖向 sticky（overflow-x:auto 的元素自身可以被 sticky，
+   但其内部子元素无法跨出它粘附，所以列头行必须独立于卡片体）。
+   top = 总览吸顶高度（ResizeObserver 写入 CSS 变量）抵消滚动容器 padding 的偏移。 */
+.headerScroller {
+  position: sticky;
+  top: calc(var(--overview-stuck-height, 380px) - 24px);
+  z-index: 15;
+  margin: 0 -24px;
+  padding: 8px 24px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: 0 6px 14px -12px rgba(16, 24, 40, 0.3);
+  scrollbar-width: none;
+}
+
+.headerScroller::-webkit-scrollbar {
+  display: none;
+}
+
+.headerTrack {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  width: max-content;
+}
+
+.headerCell {
+  flex: 0 0 250px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* 与列体对齐：列左右内边距 10 + 旧列头内边距 4 = 14 */
+  padding: 0 14px;
+}
+
+.bodyScroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 12px;
+}
+
+.bodyTrack {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: max-content;
+  padding-top: 12px;
+}
+
 /* 卡片 */
 .card {
   display: flex;
@@ -302,5 +359,18 @@
 @media (max-width: 960px) {
   .column {
     flex-basis: 232px;
+  }
+
+  .headerCell {
+    flex-basis: 232px;
+  }
+}
+
+/* 与 WorkbenchLayout 窄屏内容区内边距 14px 保持一致 */
+@media (max-width: 720px) {
+  .headerScroller {
+    top: calc(var(--overview-stuck-height, 420px) - 14px);
+    margin: 0 -14px;
+    padding: 8px 14px 10px;
   }
 }

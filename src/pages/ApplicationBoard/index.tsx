@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { BoardColumnKey } from '@/types'
 import type { FeishuApplicationItem } from '@/types/feishu'
 import { BOARD_COLUMNS } from '@/constants'
@@ -38,11 +38,28 @@ function formatSyncTime(iso: string): string {
 
 export default function ApplicationBoard() {
   const { status, error, data, refreshing, refreshError, ensureLoaded, refresh } = useBoardStore()
+  const pageRef = useRef<HTMLDivElement>(null)
+  const overviewRef = useRef<HTMLDivElement>(null)
 
   // 仅本会话首次进入看板时拉取；切换导航回来直接展示缓存，手动「刷新同步」才重新请求
   useEffect(() => {
     ensureLoaded()
   }, [ensureLoaded])
+
+  // 实时测量信息总览高度并写入 CSS 变量，列头行据此吸顶在总览正下方；
+  // 窄屏（≤960px）洞察卡换行导致总览变高时也能自动跟随，不能写死像素。
+  useEffect(() => {
+    const page = pageRef.current
+    const overview = overviewRef.current
+    if (!page || !overview) return
+    const update = () => {
+      page.style.setProperty('--overview-stuck-height', `${overview.offsetHeight}px`)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(overview)
+    return () => observer.disconnect()
+  }, [])
 
   const items: FeishuApplicationItem[] = useMemo(() => data?.items ?? [], [data])
 
@@ -129,8 +146,8 @@ export default function ApplicationBoard() {
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.overview}>
+    <div className={styles.page} ref={pageRef}>
+      <div className={styles.overview} ref={overviewRef}>
         <header className={styles.header}>
           <div>
             <h1 className={styles.title}>投递看板</h1>
