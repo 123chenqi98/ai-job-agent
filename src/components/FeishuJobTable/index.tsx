@@ -120,10 +120,16 @@ export default function FeishuJobTable({ items }: FeishuJobTableProps) {
                     </div>
                   ) : null}
                 </td>
-                <td className={styles.muted}>{item.city || '—'}</td>
-                <td className={styles.muted}>{item.target || '—'}</td>
-                <td className={styles.muted}>{item.degree || '—'}</td>
-                <td>
+                <td className={styles.muted} data-label="地点">
+                  {item.city || '—'}
+                </td>
+                <td className={styles.muted} data-label="届别">
+                  {item.target || '—'}
+                </td>
+                <td className={styles.muted} data-label="学历">
+                  {item.degree || '—'}
+                </td>
+                <td data-label="网申截止">
                   <div className={`${styles.deadline} ${deadlineToneClass[deadline.tone]}`}>
                     {deadline.text}
                   </div>
