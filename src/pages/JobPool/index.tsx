@@ -104,19 +104,22 @@ export default function JobPool() {
     }
   }
 
-  // 下拉框变化即时查询，关键词 / 城市以输入框当前值为准
+  // 下拉框变化即时查询，关键词 / 城市以输入框当前值为准，其余维度沿用当前筛选
   const searchFromControls = (patch: Partial<JobFilter>) => {
     void searchJobs({
       keyword: keywordInput.trim(),
       city: cityInput.trim(),
       target: activeFilter.target,
       degree: activeFilter.degree,
+      nature: activeFilter.nature,
+      recruitType: activeFilter.recruitType,
+      bigTech: activeFilter.bigTech,
       ...patch,
     })
   }
 
-  // 快捷 chips：点方向 / 城市即替换对应维度并立即查询，其余维度保持不变
-  const applyChip = (patch: { keyword?: string; city?: string }) => {
+  // 快捷 chips：点方向 / 城市 / 企业性质 / 大厂开关即替换对应维度并立即查询，其余维度保持不变
+  const applyChip = (patch: Partial<JobFilter>) => {
     const next: JobFilter = { ...activeFilter, ...patch }
     if (patch.keyword !== undefined) setKeywordInput(patch.keyword)
     if (patch.city !== undefined) setCityInput(patch.city)
@@ -153,7 +156,10 @@ export default function JobPool() {
     activeFilter.keyword !== DEFAULT_JOB_FILTER.keyword ||
     activeFilter.target !== DEFAULT_JOB_FILTER.target ||
     activeFilter.degree !== DEFAULT_JOB_FILTER.degree ||
-    activeFilter.city !== DEFAULT_JOB_FILTER.city
+    activeFilter.city !== DEFAULT_JOB_FILTER.city ||
+    activeFilter.nature !== DEFAULT_JOB_FILTER.nature ||
+    activeFilter.recruitType !== DEFAULT_JOB_FILTER.recruitType ||
+    activeFilter.bigTech !== DEFAULT_JOB_FILTER.bigTech
   const remaining = Math.max(total - items.length, 0)
   const loading = bootstrapStatus === 'loading'
   const error = bootstrapStatus === 'error' ? bootstrapError : null
@@ -199,7 +205,7 @@ export default function JobPool() {
           <h1 className={styles.title}>岗位池</h1>
           <p className={styles.subtitle}>
             只读浏览飞书《{meta?.source ?? '27届实习&校招总表'}
-            》：默认展示 27 届岗位，可按公司、岗位、学历与城市筛选；点「立即投递」在新标签打开官方网申页。
+            》：默认展示 27 届岗位，可按公司岗位、城市、企业性质、招聘类型与名企大厂筛选；点「立即投递」在新标签打开官方网申页。
           </p>
         </div>
         <div className={styles.headerActions}>
@@ -316,6 +322,57 @@ export default function JobPool() {
               ))}
             </div>
           </div>
+          <div className={styles.chipRow}>
+            <span className={styles.chipLabel}>性质</span>
+            <div className={styles.chips}>
+              <button
+                type="button"
+                className={
+                  activeFilter.nature === ''
+                    ? `${styles.chip} ${styles.chipActive}`
+                    : styles.chip
+                }
+                onClick={() => applyChip({ nature: '' })}
+              >
+                全部
+              </button>
+              {meta?.filters.nature.map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  className={
+                    activeFilter.nature === opt.key
+                      ? `${styles.chip} ${styles.chipActive}`
+                      : styles.chip
+                  }
+                  onClick={() => applyChip({ nature: opt.key })}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className={styles.chipRow}>
+            <span className={styles.chipLabel}>名企</span>
+            <div className={styles.chips}>
+              <button
+                type="button"
+                aria-pressed={activeFilter.bigTech}
+                className={
+                  activeFilter.bigTech
+                    ? `${styles.chip} ${styles.chipActive}`
+                    : styles.chip
+                }
+                onClick={() => applyChip({ bigTech: !activeFilter.bigTech })}
+              >
+                {activeFilter.bigTech ? '✓ 名企大厂' : '只看名企大厂'}
+              </button>
+              <span className={styles.bigTechNote}>
+                {meta?.filters.bigTech.note ??
+                  '互联网 / 科技名企口径，按公司名匹配，可随时增删'}
+              </span>
+            </div>
+          </div>
         </div>
         <form
           className={styles.filterRow}
@@ -360,6 +417,18 @@ export default function JobPool() {
               </option>
             ))}
           </select>
+          <select
+            className={styles.filterSelect}
+            value={activeFilter.recruitType}
+            onChange={(e) => searchFromControls({ recruitType: e.target.value })}
+          >
+            <option value="">全部类型</option>
+            {meta?.filters.recruitType.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
           <button type="submit" className={styles.searchButton} disabled={searching}>
             查询
           </button>
@@ -373,7 +442,8 @@ export default function JobPool() {
           </button>
         </form>
         <p className={styles.filterHint}>
-          关键词同时匹配「公司名称」与「招聘岗位」；城市按「工作地点」选项包含匹配（一条岗位可选多个城市，如「北京、上海」，选北京时不会漏掉）；筛选与排序（按网申更新倒序）均在飞书服务端执行。切换导航不会清空筛选，仅点「刷新同步」才重新拉取。
+          关键词同时匹配「公司名称」与「招聘岗位」；城市按「工作地点」选项包含匹配（一条岗位可选多个城市，如「北京、上海」，选北京时不会漏掉）；届别 / 学历 / 企业性质 / 招聘类型均在飞书服务端按精确选项筛选。「只看名企大厂」按公司名名单在服务端内存匹配（首次开启稍慢，结果缓存 5
+          分钟），与其他筛选可任意叠加；排序统一按网申更新倒序。切换导航不会清空筛选，仅点「刷新同步」才重新拉取。
         </p>
       </SectionCard>
 
@@ -393,7 +463,7 @@ export default function JobPool() {
       {items.length === 0 && !listError ? (
         <StateView
           title="没有符合条件的岗位"
-          description="尝试减少关键词或放宽届别、学历、城市筛选条件；岗位数据以飞书总表为准。"
+          description="尝试减少关键词，或放宽届别、学历、城市、企业性质与名企大厂等筛选条件；岗位数据以飞书总表为准。"
           actions={
             hasActiveFilter ? (
               <button type="button" className={styles.retryButton} onClick={resetFilters}>

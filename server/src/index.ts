@@ -9,7 +9,16 @@ import {
   searchRecords,
 } from './feishu/bitable.js'
 import { mapBoardRecords } from './boards/mapper.js'
-import { buildJobFilter, JOB_SORT, mapJobRecords, type JobQuery } from './jobs/mapper.js'
+import {
+  buildJobFilter,
+  isBigTechCompany,
+  JOB_SORT,
+  mapJobRecords,
+  NATURE_GROUPS,
+  RECRUIT_TYPE_OPTIONS,
+  type FeishuJobItem,
+  type JobQuery,
+} from './jobs/mapper.js'
 import { parseResumePdf } from './resume/pdf.js'
 import { extractRuleProfile } from './resume/profile.js'
 import { buildAiProfile, buildInterviewPrep, matchJd, rewriteBullets } from './resume/ai.js'
@@ -36,6 +45,60 @@ app.post('/api/auth/logout', authGate.handleLogout)
 // 岗位池筛选项：原表选项较脏（混入届别/企业性质），这里给出面向校招的常用白名单
 const TARGET_OPTIONS = ['27届', '27届-29届', '26届-27届', '26届', '26届-29届']
 const DEGREE_OPTIONS = ['本科起', '硕士起', '博士起', '专科起', '不限学历']
+// 企业性质分组（key 与 mapper.ts 的 NATURE_GROUPS 对齐）与大厂口径说明，随 meta 下发驱动 UI
+const NATURE_OPTION_META = [
+  { key: 'central', label: '央国企' },
+  { key: 'bank', label: '银行' },
+  { key: 'private', label: '民企' },
+  { key: 'foreign', label: '外企/合资' },
+  { key: 'institution', label: '事业单位' },
+]
+const BIG_TECH_META = {
+  label: '名企大厂',
+  note: '互联网 / 科技名企口径（约 50 家，含 BAT、字节、华为、小米、新能源新势力等），按公司名匹配，口径可随时增删',
+}
+
+// 大厂模式必须全量拉取候选再内存过滤：按「除大厂外的筛选条件」缓存过滤结果 5 分钟，
+// 避免每次无限滚动翻页都重拉全表；缓存仅保存映射后的轻量行模型
+const BIG_TECH_PAGE_SIZE = 20
+const BIG_TECH_FETCH_LIMIT = 8000
+const BIG_TECH_CACHE_TTL_MS = 5 * 60 * 1000
+const bigTechCache = new Map<string, { at: number; items: FeishuJobItem[] }>()
+
+function bigTechCacheKey(query: JobQuery): string {
+  return [
+    query.keyword?.trim() ?? '',
+    query.target?.trim() ?? '',
+    query.degree?.trim() ?? '',
+    query.city?.trim() ?? '',
+    query.nature ?? '',
+    query.recruitType ?? '',
+  ].join('|')
+}
+
+async function loadBigTechItems(
+  appToken: string,
+  tableId: string,
+  query: JobQuery,
+): Promise<FeishuJobItem[]> {
+  const key = bigTechCacheKey(query)
+  const cached = bigTechCache.get(key)
+  if (cached && Date.now() - cached.at < BIG_TECH_CACHE_TTL_MS) {
+    return cached.items
+  }
+  const records = await searchAllRecords(appToken, tableId, {
+    limit: BIG_TECH_FETCH_LIMIT,
+    filter: buildJobFilter(query),
+    sort: JOB_SORT,
+  })
+  const items = mapJobRecords(records).filter((item) => isBigTechCompany(item.company))
+  bigTechCache.set(key, { at: Date.now(), items })
+  if (bigTechCache.size > 20) {
+    const oldest = bigTechCache.keys().next().value
+    if (oldest) bigTechCache.delete(oldest)
+  }
+  return items
+}
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'ai-job-agent-server' })
@@ -221,7 +284,9 @@ function friendlyNodeTitle(title: string): string {
 app.get('/api/board', async (_req, res) => {
   try {
     const resolved = await resolveApp()
-    const records = await searchAllRecords(resolved.appToken, config.feishu.boardTableId, 500)
+    const records = await searchAllRecords(resolved.appToken, config.feishu.boardTableId, {
+      limit: 500,
+    })
     const items = mapBoardRecords(records)
     res.json({
       source: friendlyNodeTitle(resolved.node.title),
@@ -235,25 +300,56 @@ app.get('/api/board', async (_req, res) => {
   }
 })
 
-// 只读：27届网申总表 → 岗位池分页查询（关键词 / 届别 / 学历 / 城市，服务端过滤排序）
+// 只读：27届网申总表 → 岗位池分页查询
+// 关键词 / 届别 / 学历 / 城市 / 企业性质 / 招聘类型直接走飞书 filter；
+// 名企大厂因飞书不支持 AND 套 OR，改为「其他条件拉候选 + 公司名单内存过滤 + 内存分页」
 app.get('/api/jobs', async (req, res) => {
   try {
     const resolved = await resolveApp()
+    const natureRaw = typeof req.query.nature === 'string' ? req.query.nature : ''
+    const recruitRaw = typeof req.query.recruit_type === 'string' ? req.query.recruit_type : ''
     const query: JobQuery = {
       keyword: typeof req.query.q === 'string' ? req.query.q : undefined,
       target: typeof req.query.target === 'string' ? req.query.target : undefined,
       degree: typeof req.query.degree === 'string' ? req.query.degree : undefined,
       city: typeof req.query.city === 'string' ? req.query.city : undefined,
+      nature: NATURE_GROUPS[natureRaw] ? natureRaw : undefined,
+      recruitType: (RECRUIT_TYPE_OPTIONS as readonly string[]).includes(recruitRaw)
+        ? recruitRaw
+        : undefined,
+      bigTech: req.query.big_tech === '1',
     }
+    const source = friendlyNodeTitle(resolved.node.title)
+
+    if (query.bigTech) {
+      const allItems = await loadBigTechItems(resolved.appToken, config.feishu.jobsTableId, query)
+      // 大厂模式下 page_token 即下一页起始偏移（飞书原生 token 不适用内存结果集）
+      const offset = Number.parseInt(
+        typeof req.query.page_token === 'string' ? req.query.page_token : '0',
+        10,
+      )
+      const start = Number.isFinite(offset) && offset > 0 ? Math.min(offset, allItems.length) : 0
+      const pageItems = allItems.slice(start, start + BIG_TECH_PAGE_SIZE)
+      const nextOffset = start + pageItems.length
+      res.json({
+        source,
+        total: allItems.length,
+        has_more: nextOffset < allItems.length,
+        page_token: nextOffset < allItems.length ? String(nextOffset) : undefined,
+        items: pageItems,
+      })
+      return
+    }
+
     const pageToken = typeof req.query.page_token === 'string' ? req.query.page_token : undefined
     const page = await searchRecords(resolved.appToken, config.feishu.jobsTableId, {
-      pageSize: 20,
+      pageSize: BIG_TECH_PAGE_SIZE,
       pageToken,
       filter: buildJobFilter(query),
       sort: JOB_SORT,
     })
     res.json({
-      source: friendlyNodeTitle(resolved.node.title),
+      source,
       total: page.total,
       has_more: page.hasMore,
       page_token: page.pageToken,
@@ -287,7 +383,13 @@ app.get('/api/jobs/meta', async (_req, res) => {
     ])
     res.json({
       source: friendlyNodeTitle(resolved.node.title),
-      filters: { target: TARGET_OPTIONS, degree: DEGREE_OPTIONS },
+      filters: {
+        target: TARGET_OPTIONS,
+        degree: DEGREE_OPTIONS,
+        nature: NATURE_OPTION_META,
+        recruitType: RECRUIT_TYPE_OPTIONS,
+        bigTech: BIG_TECH_META,
+      },
       totals: {
         all: all.total,
         target27: target27.total,

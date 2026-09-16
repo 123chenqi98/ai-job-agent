@@ -107,16 +107,22 @@ export async function searchRecords(
   }
 }
 
-// 拉取一张数据表的全部记录（内部自动翻页，设上限保护）
+// 拉取一张数据表的全部记录（内部自动翻页，设上限保护；可带 filter/sort 服务端过滤排序）
 export async function searchAllRecords(
   appToken: string,
   tableId: string,
-  limit = 2000,
+  options: SearchOptions & { limit?: number } = {},
 ): Promise<BitableRecord[]> {
+  const limit = options.limit ?? 2000
   const records: BitableRecord[] = []
   let pageToken: string | undefined
   do {
-    const page = await searchRecords(appToken, tableId, { pageSize: 100, pageToken })
+    const page = await searchRecords(appToken, tableId, {
+      pageSize: options.pageSize ?? 500,
+      pageToken,
+      filter: options.filter,
+      sort: options.sort,
+    })
     records.push(...page.items)
     pageToken = page.hasMore ? page.pageToken : undefined
     if (records.length >= limit) break

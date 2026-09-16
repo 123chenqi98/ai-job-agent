@@ -24,6 +24,9 @@ export interface JobFilter {
   target: string
   degree: string
   city: string
+  nature: string
+  recruitType: string
+  bigTech: boolean
 }
 
 // 岗位池首次进入的默认口径：优先展示 27 届目标岗位，而不是全量 6731 条
@@ -32,6 +35,9 @@ export const DEFAULT_JOB_FILTER: JobFilter = {
   target: '27届',
   degree: '',
   city: '',
+  nature: '',
+  recruitType: '',
+  bigTech: false,
 }
 
 type AsyncStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -75,6 +81,9 @@ function toQuery(filter: JobFilter, pageToken?: string): FeishuJobQuery {
     target: filter.target || undefined,
     degree: filter.degree || undefined,
     city: filter.city || undefined,
+    nature: filter.nature || undefined,
+    recruitType: filter.recruitType || undefined,
+    bigTech: filter.bigTech || undefined,
     pageToken,
   }
 }

@@ -59,7 +59,20 @@ export interface FeishuJobQuery {
   target?: string
   degree?: string
   city?: string
+  nature?: string
+  recruitType?: string
+  bigTech?: boolean
   pageToken?: string
+}
+
+export interface NatureFilterOption {
+  key: string
+  label: string
+}
+
+export interface BigTechFilterMeta {
+  label: string
+  note: string
 }
 
 export interface FeishuJobsResponse {
@@ -72,6 +85,12 @@ export interface FeishuJobsResponse {
 
 export interface FeishuJobsMeta {
   source: string
-  filters: { target: string[]; degree: string[] }
+  filters: {
+    target: string[]
+    degree: string[]
+    nature: NatureFilterOption[]
+    recruitType: string[]
+    bigTech: BigTechFilterMeta
+  }
   totals: { all: number; target27: number; bachelor: number }
 }
