@@ -190,6 +190,7 @@ export default function HistoryPage() {
                 title={selected.title}
                 jd={selected.jd}
                 generatedAt={selected.created_at}
+                recordId={selected.id}
               />
             </div>
           ) : null}

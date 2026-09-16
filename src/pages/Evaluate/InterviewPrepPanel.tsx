@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { buildInterviewPrep } from '@/data/resumeRepository'
+import { getEvalRecord, saveEvalPrep } from '@/data/evaluationHistory'
 import type { InterviewPrep, InterviewQuestion } from '@/types/resume'
 import styles from './Evaluate.module.css'
 
@@ -23,12 +24,17 @@ export default function InterviewPrepPanel({
   jd,
   company,
   title,
+  recordId,
 }: {
   jd: string
   company?: string
   title?: string
+  recordId: string
 }) {
-  const [prep, setPrep] = useState<InterviewPrep | null>(null)
+  // 面试准备包随评估记录持久化：回看历史 / 批量页重新展开时直接呈现，不重复调用豆包
+  const [prep, setPrep] = useState<InterviewPrep | null>(
+    () => getEvalRecord(recordId)?.prep ?? null,
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -45,7 +51,10 @@ export default function InterviewPrepPanel({
         { company, title },
         controller.signal,
       )
-      if (!controller.signal.aborted) setPrep(res.prep)
+      if (!controller.signal.aborted) {
+        setPrep(res.prep)
+        saveEvalPrep(recordId, res.prep)
+      }
     } catch (err) {
       if (!isAbortError(err)) {
         setError(err instanceof Error ? err.message : '生成失败，请稍后重试。')

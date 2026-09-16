@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import SectionCard from '@/components/common/SectionCard'
 import { matchJd } from '@/data/resumeRepository'
-import { saveEvalRecords } from '@/data/evaluationHistory'
+import { makeEvalId, saveEvalRecord } from '@/data/evaluationHistory'
 import type { JdMatch } from '@/types/resume'
 import EvaluateReport from './EvaluateReport'
 import EvaluateTabs from './EvaluateTabs'
@@ -9,6 +9,7 @@ import styles from './Evaluate.module.css'
 
 const MAX_JOBS = 6
 const CONCURRENCY = 3
+const BATCH_DRAFT_KEY = 'ai-job-agent:eval-batch-draft:v1'
 
 const SAMPLE_JOBS: Array<{ company: string; title: string; jd: string }> = [
   {
@@ -63,7 +64,7 @@ let idSeed = 1
 
 function createItem(seed?: { company: string; title: string; jd: string }): BatchItem {
   return {
-    id: idSeed += 1,
+    id: (idSeed += 1),
     company: seed?.company ?? '',
     title: seed?.title ?? '',
     jd: seed?.jd ?? '',
@@ -71,14 +72,49 @@ function createItem(seed?: { company: string; title: string; jd: string }): Batc
   }
 }
 
+function loadDraftItems(): BatchItem[] {
+  try {
+    const raw = window.sessionStorage.getItem(BATCH_DRAFT_KEY)
+    if (!raw) return [createItem(), createItem()]
+    const parsed = JSON.parse(raw) as Array<{ company?: unknown; title?: unknown; jd?: unknown }>
+    if (!Array.isArray(parsed) || parsed.length === 0) return [createItem(), createItem()]
+    return parsed.slice(0, MAX_JOBS).map((row) =>
+      createItem({
+        company: typeof row.company === 'string' ? row.company : '',
+        title: typeof row.title === 'string' ? row.title : '',
+        jd: typeof row.jd === 'string' ? row.jd : '',
+      }),
+    )
+  } catch {
+    return [createItem(), createItem()]
+  }
+}
+
 export default function BatchEvaluate() {
-  const [items, setItems] = useState<BatchItem[]>([createItem(), createItem()])
+  const [items, setItems] = useState<BatchItem[]>(() => loadDraftItems())
   const [running, setRunning] = useState(false)
   const [finished, setFinished] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+  const [retryingId, setRetryingId] = useState<number | null>(null)
+  const [cancelledNote, setCancelledNote] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const reportRef = useRef<HTMLDivElement | null>(null)
+
+  // 录入内容随会话留存：切 Tab / 刷新后岗位与 JD 不丢（评估结果本身已入本地历史）
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        BATCH_DRAFT_KEY,
+        JSON.stringify(items.map((it) => ({ company: it.company, title: it.title, jd: it.jd }))),
+      )
+    } catch {
+      // sessionStorage 不可用时静默降级
+    }
+  }, [items])
+
+  // 离开页面中止仍在跑的批量请求
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   // 下钻展开报告后平滑滚动定位
   useEffect(() => {
@@ -102,10 +138,13 @@ export default function BatchEvaluate() {
   }
 
   const fillSamples = () => {
+    const hasContent = items.some((it) => it.company.trim() || it.title.trim() || it.jd.trim())
+    if (hasContent && !window.confirm('填入示例将覆盖当前录入的岗位列表，确定继续？')) return
     idSeed = 0
     setItems(SAMPLE_JOBS.map((s) => createItem(s)))
     setFormError(null)
     setFinished(false)
+    setCancelledNote(false)
     setSelectedId(null)
   }
 
@@ -115,6 +154,7 @@ export default function BatchEvaluate() {
       return
     }
     setFormError(null)
+    setCancelledNote(false)
     const controller = new AbortController()
     abortRef.current = controller
     const snapshot = items.map((it) => ({ ...it }))
@@ -124,12 +164,7 @@ export default function BatchEvaluate() {
     setSelectedId(null)
 
     let cursor = 0
-    const doneResults: Array<{
-      company?: string
-      title?: string
-      jd: string
-      match: JdMatch
-    }> = []
+    let doneCount = 0
     const worker = async () => {
       while (cursor < snapshot.length) {
         if (controller.signal.aborted) break
@@ -145,13 +180,20 @@ export default function BatchEvaluate() {
             },
             controller.signal,
           )
+          if (controller.signal.aborted) {
+            patchItem(item.id, { status: 'skipped' })
+            break
+          }
           patchItem(item.id, { status: 'done', match: res.match, generatedAt: res.generated_at })
-          doneResults.push({
+          // 每条完成立即落库：中途取消 / 关页也不丢已烧 token 得到的结果
+          saveEvalRecord({
             company: item.company.trim() || undefined,
             title: item.title.trim() || undefined,
             jd: item.jd.trim(),
             match: res.match,
+            source: 'batch',
           })
+          doneCount += 1
         } catch (err) {
           if (controller.signal.aborted || isAbortError(err)) {
             patchItem(item.id, { status: 'skipped' })
@@ -162,17 +204,45 @@ export default function BatchEvaluate() {
       }
     }
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, snapshot.length) }, () => worker()))
-    if (!controller.signal.aborted) {
-      // 批量结果按岗位稳定 id 落本地历史（同岗位重评覆盖更新）
-      saveEvalRecords(doneResults)
-      setRunning(false)
-      setFinished(true)
-    }
+    const aborted = controller.signal.aborted
+    setRunning(false)
+    setCancelledNote(aborted && doneCount > 0)
+    // 取消时只要有已完成项也进入排名页保留结果；全未完成则回到录入态
+    setFinished(doneCount > 0)
   }
 
   const cancelAll = () => {
     abortRef.current?.abort()
     setRunning(false)
+  }
+
+  // 失败项单条重跑：不重跑其他岗位，成功后即时入库并入排名
+  const retryOne = async (id: number) => {
+    const target = items.find((it) => it.id === id)
+    if (!target || target.jd.trim().length < 30) return
+    const controller = new AbortController()
+    abortRef.current = controller
+    setRetryingId(id)
+    patchItem(id, { status: 'running', error: undefined })
+    try {
+      const res = await matchJd(
+        target.jd.trim(),
+        { company: target.company.trim() || undefined, title: target.title.trim() || undefined },
+        controller.signal,
+      )
+      patchItem(id, { status: 'done', match: res.match, generatedAt: res.generated_at })
+      saveEvalRecord({
+        company: target.company.trim() || undefined,
+        title: target.title.trim() || undefined,
+        jd: target.jd.trim(),
+        match: res.match,
+        source: 'batch',
+      })
+    } catch (err) {
+      if (!isAbortError(err)) patchItem(id, { status: 'error', error: errorText(err) })
+    } finally {
+      setRetryingId(null)
+    }
   }
 
   const backToEdit = () => {
@@ -337,15 +407,37 @@ export default function BatchEvaluate() {
                 )
               })}
             </ul>
-            {failedItems.length > 0 ? (
+            {cancelledNote ? (
               <p className={styles.batchFailNote}>
-                {failedItems.length} 个岗位评估失败，可修改后重试：
-                {failedItems.map((it) => [it.company, it.title].filter(Boolean).join(' · ') || '未命名岗位').join('；')}
+                评估已取消，已完成的 {ranked.length} 个结果已保留并自动存入本地评估历史；未评估的岗位可修改列表后重新发起。
               </p>
+            ) : null}
+            {failedItems.length > 0 ? (
+              <div className={styles.failList}>
+                <p className={styles.batchFailNote}>{failedItems.length} 个岗位评估失败，可单独重试：</p>
+                <ul className={styles.rankList}>
+                  {failedItems.map((it) => (
+                    <li key={it.id} className={styles.failItem}>
+                      <span className={styles.rankJob}>
+                        {[it.company, it.title].filter(Boolean).join(' · ') || '未命名岗位'}
+                      </span>
+                      <span className={styles.failReason}>{it.error}</span>
+                      <button
+                        type="button"
+                        className={styles.retryButton}
+                        disabled={retryingId === it.id}
+                        onClick={() => void retryOne(it.id)}
+                      >
+                        {retryingId === it.id ? '重试中…' : '重试该岗位'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
             <div className={styles.actionRow}>
               <button type="button" className={styles.primaryButton} onClick={() => void runAll()}>
-                重新评估
+                重新评估全部
               </button>
               <button type="button" className={styles.ghostButton} onClick={backToEdit}>
                 修改岗位列表
@@ -361,6 +453,11 @@ export default function BatchEvaluate() {
                 title={selected.title}
                 jd={selected.jd}
                 generatedAt={selected.generatedAt ?? ''}
+                recordId={makeEvalId(
+                  selected.company.trim() || undefined,
+                  selected.title.trim() || undefined,
+                  selected.jd.trim(),
+                )}
               />
             </div>
           ) : null}

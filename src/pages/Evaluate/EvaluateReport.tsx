@@ -43,12 +43,14 @@ export default function EvaluateReport({
   title,
   jd,
   generatedAt,
+  recordId,
 }: {
   match: JdMatch
   company?: string
   title?: string
   jd: string
   generatedAt: string
+  recordId: string
 }) {
   const hasFail = match.deal_breakers.some((g) => g.status === 'fail')
   const time = new Date(generatedAt).toLocaleString('zh-CN', {
@@ -161,7 +163,7 @@ export default function EvaluateReport({
         )}
       </section>
 
-      <InterviewPrepPanel jd={jd} company={company} title={title} />
+      <InterviewPrepPanel jd={jd} company={company} title={title} recordId={recordId} />
 
       <footer className={styles.reportFooter}>
         <span>评估时间 {time}</span>
