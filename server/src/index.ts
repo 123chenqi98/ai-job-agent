@@ -211,6 +211,12 @@ app.get('/api/feishu/meta', async (_req, res) => {
   }
 })
 
+// 面向用户展示的飞书节点名：去掉多维表复制时自动追加的「副本」等内部编辑痕迹
+function friendlyNodeTitle(title: string): string {
+  const cleaned = title.trim().replace(/[\s·\-—_]*副本+\s*$/, '').trim()
+  return cleaned || title
+}
+
 // 只读：飞书面经看板表 → 工作台投递看板数据（含状态归并，不写回飞书）
 app.get('/api/board', async (_req, res) => {
   try {
@@ -218,7 +224,7 @@ app.get('/api/board', async (_req, res) => {
     const records = await searchAllRecords(resolved.appToken, config.feishu.boardTableId, 500)
     const items = mapBoardRecords(records)
     res.json({
-      source: resolved.node.title,
+      source: friendlyNodeTitle(resolved.node.title),
       table: resolved.tables.find((t) => t.tableId === config.feishu.boardTableId)?.title ?? null,
       generated_at: new Date().toISOString(),
       total: items.length,
@@ -247,7 +253,7 @@ app.get('/api/jobs', async (req, res) => {
       sort: JOB_SORT,
     })
     res.json({
-      source: resolved.node.title,
+      source: friendlyNodeTitle(resolved.node.title),
       total: page.total,
       has_more: page.hasMore,
       page_token: page.pageToken,
@@ -280,7 +286,7 @@ app.get('/api/jobs/meta', async (_req, res) => {
       }),
     ])
     res.json({
-      source: resolved.node.title,
+      source: friendlyNodeTitle(resolved.node.title),
       filters: { target: TARGET_OPTIONS, degree: DEGREE_OPTIONS },
       totals: {
         all: all.total,

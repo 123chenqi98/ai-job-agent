@@ -398,7 +398,7 @@ export default function Dashboard() {
                           <a
                             href={item.apply_url}
                             target="_blank"
-                            rel="noreferrer"
+                            rel="noreferrer noopener"
                             className={styles.applyLink}
                           >
                             立即投递

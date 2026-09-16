@@ -3,8 +3,6 @@ import WorkbenchLayout from '@/layouts/WorkbenchLayout'
 import StateView from '@/components/common/StateView'
 import Dashboard from '@/pages/Dashboard'
 import JobPool from '@/pages/JobPool'
-import JobDetail from '@/pages/JobDetail'
-import ResumeSuggestion from '@/pages/ResumeSuggestion'
 import ApplicationBoard from '@/pages/ApplicationBoard'
 import MyResume from '@/pages/MyResume'
 import Evaluate from '@/pages/Evaluate'
@@ -32,8 +30,6 @@ export default function AppRoutes() {
       <Route element={<WorkbenchLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/jobs" element={<JobPool />} />
-        <Route path="/jobs/:jobId" element={<JobDetail />} />
-        <Route path="/jobs/:jobId/resume" element={<ResumeSuggestion />} />
         <Route path="/board" element={<ApplicationBoard />} />
         <Route path="/evaluate" element={<Evaluate />} />
         <Route path="/evaluate/batch" element={<BatchEvaluate />} />

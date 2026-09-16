@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import Tag from '@/components/common/Tag'
 import { findEvalForJob } from '@/data/evaluationHistory'
@@ -72,6 +73,11 @@ function ExternalIcon() {
 }
 
 export default function FeishuJobTable({ items }: FeishuJobTableProps) {
+  // 每行角标都需扫一遍本地评估历史，统一按列表数据记忆化，避免渲染期重复读 localStorage
+  const evalByRow = useMemo(
+    () => items.map((item) => findEvalForJob(item.company, item.job_title)),
+    [items],
+  )
   return (
     <div className={styles.tableWrap}>
       <table className={styles.table}>
@@ -87,10 +93,10 @@ export default function FeishuJobTable({ items }: FeishuJobTableProps) {
           </tr>
         </thead>
         <tbody>
-          {items.map((item) => {
+          {items.map((item, index) => {
             const deadline = deadlineView(item.deadline)
             const updated = formatUpdated(item.updated_at)
-            const evalRecord = findEvalForJob(item.company, item.job_title)
+            const evalRecord = evalByRow[index]
             return (
               <tr key={item.record_id}>
                 <td>

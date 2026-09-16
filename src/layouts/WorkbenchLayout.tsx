@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { WorkbenchDataProvider } from '@/state/WorkbenchStore'
 import styles from './WorkbenchLayout.module.css'
@@ -55,7 +55,7 @@ function IconResume() {
   )
 }
 
-// 侧边主导航：只放一级模块；岗位详情 / Mock 简历建议从列表进入，不占主导航
+// 侧边主导航：只放一级模块
 const NAV_ITEMS: Array<{ to: string; label: string; icon: () => ReactNode; end?: boolean }> = [
   { to: '/', label: '今日工作台', icon: IconHome, end: true },
   { to: '/jobs', label: '岗位池', icon: IconBriefcase },
@@ -68,7 +68,6 @@ const NAV_ITEMS: Array<{ to: string; label: string; icon: () => ReactNode; end?:
 function resolvePageTitle(pathname: string): string {
   if (pathname === '/') return '今日工作台'
   if (pathname === '/jobs') return '岗位池'
-  if (pathname.startsWith('/jobs/')) return '岗位详情（原型 Mock）'
   if (pathname.startsWith('/evaluate/batch')) return '批量评估与排名'
   if (pathname.startsWith('/evaluate/history')) return '评估历史'
   if (pathname.startsWith('/evaluate')) return '单岗位评估'
@@ -77,10 +76,18 @@ function resolvePageTitle(pathname: string): string {
   return '今日工作台'
 }
 
+const APP_TITLE = 'AI 求职决策工作台'
+
 export default function WorkbenchLayout() {
   const location = useLocation()
-  // 数据来源三态：飞书只读两表 / 本机简历（AI 增强）/ 前端原型 Mock
-  // 注意：/jobs 列表为飞书数据，/jobs/:id 详情为早期 Mock 原型（无站内入口），需区分
+  const pageTitle = resolvePageTitle(location.pathname)
+
+  // 浏览器标签页标题随路由变化，刷新 / 分享链接时也能识别当前页面
+  useEffect(() => {
+    document.title = `${pageTitle} · ${APP_TITLE}`
+  }, [pageTitle])
+
+  // 数据来源两态：飞书只读两表 / 本机简历（规则解析 + AI 增强）
   const isFeishuConnected =
     location.pathname === '/' ||
     location.pathname === '/jobs' ||
@@ -128,14 +135,14 @@ export default function WorkbenchLayout() {
 
       <div className={styles.main}>
         <header className={styles.topbar}>
-          <span className={styles.topbarTitle}>{resolvePageTitle(location.pathname)}</span>
+          <span className={styles.topbarTitle}>{pageTitle}</span>
           <span className={styles.envBadge}>
             <span className={styles.envDot} />
             {isFeishuConnected
               ? '飞书多维表格 · 只读同步'
               : isLocalResume
                 ? '本机简历 · 规则解析 + 豆包 AI'
-                : '前端原型 · Mock 数据'}
+                : 'AI 求职决策工作台'}
           </span>
         </header>
         <section className={styles.content}>
