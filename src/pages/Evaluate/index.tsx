@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import SectionCard from '@/components/common/SectionCard'
 import StateView from '@/components/common/StateView'
+import PaymentWall from '@/components/PaymentWall'
+import { useAccount } from '@/auth/AuthProvider'
 import { getAppConfig, matchJd } from '@/data/resumeRepository'
 import { makeEvalId, saveEvalRecord } from '@/data/evaluationHistory'
 import type { AppConfig, JdMatch, JdMatchResponse } from '@/types/resume'
@@ -82,6 +84,7 @@ export default function Evaluate() {
   // 会话过期等情况下前端状态滞后，服务端 401/404 时强制再亮一次门禁卡
   const [gateVisible, setGateVisible] = useState(false)
   const resumeReady = useResumeReady()
+  const { loading: accountLoading, logged, paid, refresh: refreshAccount } = useAccount()
   const abortRef = useRef<AbortController | null>(null)
   const reportRef = useRef<HTMLDivElement | null>(null)
 
@@ -150,7 +153,9 @@ export default function Evaluate() {
     } catch (err) {
       if (!isAbortError(err)) {
         const status = (err as { status?: number }).status
-        if (status === 401 || status === 404) {
+        if (status === 402) {
+          await refreshAccount()
+        } else if (status === 401 || status === 404) {
           setGateVisible(true)
           setError(null)
         } else {
@@ -182,6 +187,10 @@ export default function Evaluate() {
         <StateView title="本地服务不可用" description={configError} />
       </div>
     )
+  }
+
+  if (!accountLoading && logged && !paid) {
+    return <PaymentWall onAccessChanged={() => refreshAccount()} />
   }
 
   const arkConfigured = config?.ark_configured ?? false

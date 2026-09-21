@@ -1,0 +1,167 @@
+.wall {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 8px 4px;
+}
+
+.stateBlock {
+  padding: 72px 16px;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary-border);
+  border-radius: 999px;
+}
+
+.title {
+  margin: 14px 0 8px;
+  font-size: 26px;
+}
+
+.lead {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.price {
+  color: var(--color-primary);
+  font-size: 16px;
+}
+
+.body {
+  display: flex;
+  gap: 28px;
+  margin-top: 24px;
+  padding: 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.qrBox {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.qr {
+  width: 260px;
+  height: 260px;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.qrHint {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.steps {
+  flex: 1;
+  min-width: 0;
+}
+
+.stepList {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--color-text);
+}
+
+.uploadBox,
+.pendingBox {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.pendingTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pendingDesc {
+  margin: 6px 0 14px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.primaryButton {
+  height: 40px;
+  padding: 0 22px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.primaryButton:disabled {
+  background: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.muted {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--color-text-disabled);
+}
+
+.rejectText {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: var(--color-danger);
+}
+
+.errorText {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--color-danger);
+}
+
+@media (max-width: 720px) {
+  .body {
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 18px;
+  }
+
+  .qr {
+    width: 220px;
+    height: 220px;
+  }
+}

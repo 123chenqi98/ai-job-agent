@@ -1,8 +1,10 @@
 import type {
   AccountStatus,
+  AdminPaymentItem,
   AdminUserItem,
   AdminUserWithPassword,
   LoginResponse,
+  PaymentProofState,
   RegisterResponse,
   ResumeUploadResponse,
 } from '@/types/resume'
@@ -139,4 +141,49 @@ export async function deleteResume(): Promise<ApiResult<{ has_resume: boolean }>
   } catch {
     return { ok: false, status: 0, msg: '网络异常，请重试。' }
   }
+}
+
+// ---- 付费开通 ----
+
+export function fetchPayment(): Promise<
+  ApiResult<{ paid: boolean; proof: PaymentProofState | null }>
+> {
+  return getJson('/api/account/payment')
+}
+
+export async function uploadPaymentProof(
+  file: File,
+): Promise<ApiResult<{ proof: PaymentProofState }>> {
+  const form = new FormData()
+  form.append('file', file)
+  let res: Response
+  try {
+    res = await fetch('/api/account/payment-proof', { method: 'POST', body: form })
+  } catch {
+    return { ok: false, status: 0, msg: '网络异常，上传失败，请重试。' }
+  }
+  const json = (await res.json().catch(() => null)) as
+    | ({ msg?: string } & Partial<{ proof: PaymentProofState }>)
+    | null
+  if (res.ok && json?.proof) return { ok: true, proof: json.proof }
+  return { ok: false, status: res.status, msg: json?.msg ?? '上传失败，请重试。' }
+}
+
+// ---- 站长：凭证审核 ----
+
+export function fetchAdminPayments(
+  status: 'pending' | 'all' = 'pending',
+): Promise<ApiResult<{ proofs: AdminPaymentItem[] }>> {
+  return getJson(`/api/admin/payments?status=${status}`)
+}
+
+export function approveAdminPayment(id: string): Promise<ApiResult<Record<string, never>>> {
+  return postJson(`/api/admin/payments/${encodeURIComponent(id)}/approve`, {})
+}
+
+export function rejectAdminPayment(
+  id: string,
+  reason: string,
+): Promise<ApiResult<Record<string, never>>> {
+  return postJson(`/api/admin/payments/${encodeURIComponent(id)}/reject`, { reason })
 }

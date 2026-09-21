@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import SectionCard from '@/components/common/SectionCard'
+import PaymentWall from '@/components/PaymentWall'
+import { useAccount } from '@/auth/AuthProvider'
 import { matchJd } from '@/data/resumeRepository'
 import { makeEvalId, saveEvalRecord } from '@/data/evaluationHistory'
 import type { JdMatch } from '@/types/resume'
@@ -100,6 +102,7 @@ export default function BatchEvaluate() {
   const [retryingId, setRetryingId] = useState<number | null>(null)
   const [cancelledNote, setCancelledNote] = useState(false)
   const resumeReady = useResumeReady()
+  const { loading: accountLoading, logged, paid, refresh: refreshAccount } = useAccount()
   const abortRef = useRef<AbortController | null>(null)
   const reportRef = useRef<HTMLDivElement | null>(null)
 
@@ -263,6 +266,10 @@ export default function BatchEvaluate() {
   const failedItems = items.filter((it) => it.status === 'error')
   const doneCount = items.filter((it) => it.status === 'done').length
   const selected = items.find((it) => it.id === selectedId) ?? null
+
+  if (!accountLoading && logged && !paid) {
+    return <PaymentWall onAccessChanged={() => refreshAccount()} />
+  }
 
   return (
     <div className={styles.page}>

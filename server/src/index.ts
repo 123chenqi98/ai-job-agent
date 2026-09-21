@@ -38,12 +38,19 @@ import {
 } from './accounts/session.js'
 import {
   AccountError,
+  approveProof,
   clearResume,
   createAccount,
+  createProof,
   deleteAccount,
   findById,
   findByUsername,
+  getLatestProof,
+  hasPendingProof,
   listAccounts,
+  listProofsForAdmin,
+  findProofById,
+  rejectProof,
   resetPassword,
   setResume,
 } from './accounts/store.js'
@@ -65,6 +72,33 @@ await fs.mkdir(RESUMES_DIR, { recursive: true })
 
 function resumePathFor(userId: string): string {
   return path.join(RESUMES_DIR, `${userId}.pdf`)
+}
+
+// 付款凭证目录：server/data/payment-proofs/<随机名>.<jpg|png>（仅站长可经接口读取）
+const PROOFS_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../data/payment-proofs')
+await fs.mkdir(PROOFS_DIR, { recursive: true })
+
+function proofPathFor(filename: string): string {
+  return path.join(PROOFS_DIR, filename)
+}
+
+// 付费硬门槛：站长或已开通账号放行，否则 402（挂在 requireUser 之后）
+async function requireAccess(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+): Promise<void> {
+  const account = await findById(req.userId!)
+  if (!account) {
+    res.status(401).json({ error: 'unauthorized', msg: '请先登录账号。' })
+    return
+  }
+  const isOwner = Boolean(config.auth.ownerUserId && account.user_id === config.auth.ownerUserId)
+  if (isOwner || account.paid) {
+    next()
+    return
+  }
+  res.status(402).json({ error: 'payment_required', msg: '请先支付 ¥1.66 开通使用权限。' })
 }
 
 // ---- 账号注册 / 登录 / 恢复限频（按 IP 兜底，防恶意注册与撞库） ----
@@ -168,6 +202,7 @@ app.get('/api/account/status', async (req, res) => {
     username: account.username,
     has_resume: Boolean(account.resume),
     resume: account.resume,
+    paid: account.paid,
     ai_remaining: getAiRemaining(account.user_id),
     is_owner: Boolean(config.auth.ownerUserId && account.user_id === config.auth.ownerUserId),
   })
@@ -279,6 +314,7 @@ function publicUserView(a: {
   user_id: string
   username: string
   created_at: string
+  paid: boolean
   resume: { size: number } | null
 }) {
   return {
@@ -287,6 +323,7 @@ function publicUserView(a: {
     created_at: a.created_at,
     has_resume: Boolean(a.resume),
     resume_size: a.resume?.size ?? null,
+    paid: a.paid,
   }
 }
 
@@ -353,6 +390,164 @@ app.delete(
   },
 )
 
+// ---- 付费开通：用户查询状态 / 上传凭证；站长审核 ----
+
+function clientProofView(p: {
+  id: string
+  status: string
+  reject_reason: string
+  created_at: string
+  reviewed_at: string | null
+}) {
+  return {
+    id: p.id,
+    status: p.status,
+    reject_reason: p.reject_reason,
+    created_at: p.created_at,
+    reviewed_at: p.reviewed_at,
+  }
+}
+
+app.get('/api/account/payment', requireUser(authSecret), async (req, res) => {
+  const account = await findById(req.userId!)
+  if (!account) {
+    res.status(401).json({ error: 'unauthorized', msg: '请先登录账号。' })
+    return
+  }
+  const proof = await getLatestProof(req.userId!)
+  res.json({ paid: account.paid, proof: proof ? clientProofView(proof) : null })
+})
+
+const proofUpload = multer({
+  storage: multer.diskStorage({
+    destination: PROOFS_DIR,
+    filename: (_req, file, cb) => {
+      const ext = file.mimetype === 'image/png' ? '.png' : '.jpg'
+      cb(null, `${crypto.randomBytes(12).toString('hex')}${ext}`)
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') cb(null, true)
+    else cb(new Error('仅支持 JPG / PNG 图片'))
+  },
+})
+
+app.post('/api/account/payment-proof', requireUser(authSecret), (req, res) => {
+  proofUpload.single('file')(req, res, async (uploadError) => {
+    const userId = req.userId!
+    const account = await findById(userId)
+    if (!account) {
+      res.status(401).json({ error: 'unauthorized', msg: '请先登录账号。' })
+      return
+    }
+    if (uploadError) {
+      const msg = uploadError.message.includes('JPG')
+        ? '仅支持 JPG / PNG 格式截图。'
+        : uploadError.message.includes('File too large')
+          ? '截图不能超过 5MB。'
+          : '上传失败，请重试。'
+      res.status(400).json({ error: 'upload_failed', msg })
+      return
+    }
+    const file = (req as express.Request & { file?: Express.Multer.File }).file
+    if (!file) {
+      res.status(400).json({ error: 'no_file', msg: '请选择付款截图。' })
+      return
+    }
+    if (account.paid) {
+      await fs.rm(file.path, { force: true }).catch(() => undefined)
+      res.status(400).json({ error: 'already_paid', msg: '你已开通权限，无需重复上传。' })
+      return
+    }
+    if (await hasPendingProof(userId)) {
+      await fs.rm(file.path, { force: true }).catch(() => undefined)
+      res.status(409).json({ error: 'pending_exists', msg: '已有凭证在审核中，请耐心等待。' })
+      return
+    }
+    try {
+      const head = await fs.readFile(file.path, encodingNone())
+      const isJpeg = head.subarray(0, 3).toString('hex') === 'ffd8ff'
+      const isPng = head.subarray(0, 4).toString('hex') === '89504e47'
+      if (!isJpeg && !isPng) throw new Error('bad_image')
+      const proof = await createProof({ userId, filename: path.basename(file.path), size: file.size })
+      res.status(201).json({ ok: true, proof: clientProofView(proof) })
+    } catch {
+      await fs.rm(file.path, { force: true }).catch(() => undefined)
+      res.status(400).json({ error: 'invalid_image', msg: '文件不是有效的图片，请重新上传。' })
+    }
+  })
+})
+
+// 站长：凭证审核队列（默认 pending，可带 ?status=all）
+app.get(
+  '/api/admin/payments',
+  requireUser(authSecret),
+  requireOwner,
+  async (req, res) => {
+    const filter = req.query.status === 'all' ? 'all' : 'pending'
+    const proofs = await listProofsForAdmin(filter)
+    res.json({ proofs })
+  },
+)
+
+// 站长：查看凭证原图
+app.get(
+  '/api/admin/payments/:id/image',
+  requireUser(authSecret),
+  requireOwner,
+  async (req, res) => {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+    const proof = await findProofById(id)
+    if (!proof) {
+      res.status(404).json({ error: 'not_found', msg: '凭证不存在。' })
+      return
+    }
+    res.sendFile(proofPathFor(proof.filename), (error) => {
+      if (error && !res.headersSent) {
+        res.status(404).json({ error: 'file_missing', msg: '凭证文件不存在。' })
+      }
+    })
+  },
+)
+
+// 站长：通过 → 自动开通
+app.post(
+  '/api/admin/payments/:id/approve',
+  requireUser(authSecret),
+  requireOwner,
+  async (req, res) => {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+    const affected = await approveProof(id)
+    if (affected === 0) {
+      res.status(409).json({ error: 'not_pending', msg: '该凭证不存在或已处理。' })
+      return
+    }
+    res.json({ ok: true })
+  },
+)
+
+// 站长：拒绝（需填写原因，用户可据此重新上传）
+app.post(
+  '/api/admin/payments/:id/reject',
+  requireUser(authSecret),
+  requireOwner,
+  async (req, res) => {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : ''
+    if (!reason) {
+      res.status(400).json({ error: 'reason_required', msg: '请填写拒绝原因。' })
+      return
+    }
+    const affected = await rejectProof(id, reason)
+    if (affected === 0) {
+      res.status(409).json({ error: 'not_pending', msg: '该凭证不存在或已处理。' })
+      return
+    }
+    res.json({ ok: true })
+  },
+)
+
 // ---- 简历上传：PDF、≤10MB；先落临时文件，校验 PDF 头 + 可解析后再 rename 覆盖 ----
 const resumeUpload = multer({
   storage: multer.diskStorage({
@@ -368,7 +563,11 @@ const resumeUpload = multer({
   },
 })
 
-app.post('/api/account/resume', requireUser(authSecret), (req, res) => {
+app.post(
+  '/api/account/resume',
+  requireUser(authSecret),
+  requireAccess,
+  (req, res) => {
   resumeUpload.single('file')(req, res, async (uploadError) => {
     if (uploadError) {
       const msg = uploadError.message.includes('PDF')
@@ -422,7 +621,11 @@ app.delete('/api/account/resume', requireUser(authSecret), async (req, res) => {
 })
 
 // 下载自己的原始 PDF（前端预览/留存用）；他人 uid 路径无法猜到且有鉴权
-app.get('/api/account/resume/file', requireUser(authSecret), async (req, res) => {
+app.get(
+  '/api/account/resume/file',
+  requireUser(authSecret),
+  requireAccess,
+  async (req, res) => {
   const userId = req.userId!
   const account = await findById(userId)
   const filePath = resumePathFor(userId)
@@ -438,7 +641,11 @@ app.get('/api/account/resume/file', requireUser(authSecret), async (req, res) =>
 })
 
 // 只读：当前登录用户的简历 PDF → 文本 + 规则画像（不发送任何外部服务）
-app.get('/api/resume', requireUser(authSecret), async (req, res) => {
+app.get(
+  '/api/resume',
+  requireUser(authSecret),
+  requireAccess,
+  async (req, res) => {
   const userId = req.userId!
   try {
     const filePath = resumePathFor(userId)
@@ -504,7 +711,7 @@ function pickJobMeta(body: unknown): { company?: string; title?: string } {
 
 // AI 接口：必须登录 + 已上传本人简历；每账号每天 10 次，另有按 IP 兜底防刷豆包账单
 const aiIpFallback = createIpRateLimit({ windowMs: 10 * 60 * 1000, max: 30 })
-const aiGuards = [requireUser(authSecret), aiIpFallback, checkAiQuota]
+const aiGuards = [requireUser(authSecret), requireAccess, aiIpFallback, checkAiQuota]
 
 // AI 深度画像：豆包把简历结构化为能力/亮点/短板/经历归属
 app.post('/api/resume/ai-profile', ...aiGuards, async (req, res) => {

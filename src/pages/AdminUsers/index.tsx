@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from '@/auth/AuthProvider'
-import { deleteAdminUser, fetchAdminUsers, revealAdminPasswords } from '@/auth/authClient'
-import type { AdminUserItem } from '@/types/resume'
+import {
+  approveAdminPayment,
+  deleteAdminUser,
+  fetchAdminPayments,
+  fetchAdminUsers,
+  rejectAdminPayment,
+  revealAdminPasswords,
+} from '@/auth/authClient'
+import type { AdminPaymentItem, AdminUserItem } from '@/types/resume'
 import styles from './AdminUsers.module.css'
 
 // 站长用户管理：列表默认不含密码；输入站长本人登录密码后口令通过，
@@ -82,6 +89,10 @@ export default function AdminUsers() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState('')
 
+  const [proofs, setProofs] = useState<AdminPaymentItem[]>([])
+  const [proofBusyId, setProofBusyId] = useState<string | null>(null)
+  const [proofError, setProofError] = useState('')
+
   const unlocked = Object.keys(passwordMap).length > 0
 
   async function loadUsers() {
@@ -99,6 +110,7 @@ export default function AdminUsers() {
 
   useEffect(() => {
     void loadUsers()
+    void loadProofs()
   }, [])
 
   async function handleUnlock() {
@@ -174,6 +186,55 @@ export default function AdminUsers() {
     )
   }
 
+  async function loadProofs() {
+    setProofError('')
+    const result = await fetchAdminPayments('pending')
+    if (result.ok) setProofs(result.proofs)
+    else setProofError(result.msg)
+  }
+
+  async function handleApproveProof(p: AdminPaymentItem) {
+    if (proofBusyId) return
+    setProofBusyId(p.id)
+    setProofError('')
+    const result = await approveAdminPayment(p.id)
+    setProofBusyId(null)
+    if (result.ok) {
+      await loadProofs()
+      await loadUsers()
+      return
+    }
+    setProofError(result.msg)
+  }
+
+  async function handleRejectProof(p: AdminPaymentItem) {
+    if (proofBusyId) return
+    const reason = window.prompt(`拒绝「${p.username}」的付款凭证，请填写原因（会展示给用户）：`)
+    if (reason == null) return
+    const trimmed = reason.trim()
+    if (!trimmed) {
+      setProofError('拒绝原因不能为空。')
+      return
+    }
+    setProofBusyId(p.id)
+    setProofError('')
+    const result = await rejectAdminPayment(p.id, trimmed)
+    setProofBusyId(null)
+    if (result.ok) {
+      await loadProofs()
+      return
+    }
+    setProofError(result.msg)
+  }
+
+  function paidCell(u: AdminUserItem) {
+    return u.paid ? (
+      <span className={styles.resumeOk}>已开通</span>
+    ) : (
+      <span className={styles.muted}>未开通</span>
+    )
+  }
+
   if (authLoading || listState === 'loading') {
     return <div className={styles.stateBlock}>正在加载用户列表…</div>
   }
@@ -222,6 +283,58 @@ export default function AdminUsers() {
 
       {actionError ? <p className={styles.errorText}>{actionError}</p> : null}
 
+      <div className={styles.reviewCard}>
+        <div className={styles.reviewHead}>
+          <h2 className={styles.reviewTitle}>付款审核</h2>
+          <span className={styles.countPill}>{proofs.length} 个待审核</span>
+        </div>
+        {proofError ? <p className={styles.errorText}>{proofError}</p> : null}
+        {proofs.length === 0 ? (
+          <p className={styles.muted}>暂无待审核的付款凭证。</p>
+        ) : (
+          <div className={styles.proofList}>
+            {proofs.map((p) => (
+              <div key={p.id} className={styles.proofItem}>
+                <a
+                  href={`/api/admin/payments/${p.id}/image`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  title="点击查看凭证大图"
+                >
+                  <img
+                    className={styles.proofThumb}
+                    src={`/api/admin/payments/${p.id}/image`}
+                    alt={`${p.username} 的付款凭证`}
+                  />
+                </a>
+                <div className={styles.proofMeta}>
+                  <span className={styles.proofUser}>{p.username}</span>
+                  <span className={styles.muted}>{formatTime(p.created_at)}</span>
+                </div>
+                <div className={styles.proofActions}>
+                  <button
+                    type="button"
+                    className={styles.unlockButton}
+                    disabled={proofBusyId === p.id}
+                    onClick={() => void handleApproveProof(p)}
+                  >
+                    通过
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.lockButton}
+                    disabled={proofBusyId === p.id}
+                    onClick={() => void handleRejectProof(p)}
+                  >
+                    拒绝
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className={styles.unlockCard}>
         {unlocked ? (
           <div className={styles.unlockedRow}>
@@ -268,6 +381,7 @@ export default function AdminUsers() {
             <tr>
               <th>账号名</th>
               <th>注册时间</th>
+              <th>付费</th>
               <th>简历</th>
               <th>密码</th>
               <th>操作</th>
@@ -278,6 +392,7 @@ export default function AdminUsers() {
               <tr key={u.user_id}>
                 <td className={styles.usernameCell}>{u.username}</td>
                 <td className={styles.timeCell}>{formatTime(u.created_at)}</td>
+                <td>{paidCell(u)}</td>
                 <td>{resumeCell(u)}</td>
                 <td>
                   <PasswordCell
@@ -303,6 +418,10 @@ export default function AdminUsers() {
             <div className={styles.cardRow}>
               <span className={styles.cardLabel}>注册时间</span>
               <span>{formatTime(u.created_at)}</span>
+            </div>
+            <div className={styles.cardRow}>
+              <span className={styles.cardLabel}>付费</span>
+              {paidCell(u)}
             </div>
             <div className={styles.cardRow}>
               <span className={styles.cardLabel}>密码</span>

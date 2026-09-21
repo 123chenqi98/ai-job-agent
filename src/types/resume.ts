@@ -177,9 +177,27 @@ export type AccountStatus =
       username: string
       has_resume: boolean
       resume: AccountResumeMeta | null
+      paid: boolean
       ai_remaining: number
       is_owner?: boolean
     }
+
+// ---- 付费开通 ----
+
+export interface PaymentProofState {
+  id: string
+  status: 'pending' | 'approved' | 'rejected'
+  reject_reason: string
+  created_at: string
+  reviewed_at: string | null
+}
+
+export interface AdminPaymentItem extends PaymentProofState {
+  user_id: string
+  username: string
+  filename: string
+  size: number
+}
 
 // ---- 站长用户管理 ----
 
@@ -187,6 +205,7 @@ export interface AdminUserItem {
   user_id: string
   username: string
   created_at: string
+  paid: boolean
   has_resume: boolean
   resume_size: number | null
 }

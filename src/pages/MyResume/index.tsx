@@ -3,6 +3,7 @@ import { deleteResume, logout } from '@/auth/authClient'
 import { useAccount } from '@/auth/AuthProvider'
 import SectionCard from '@/components/common/SectionCard'
 import StateView from '@/components/common/StateView'
+import PaymentWall from '@/components/PaymentWall'
 import {
   generateAiProfile,
   getAppConfig,
@@ -122,6 +123,7 @@ export default function MyResume() {
     loading: accountLoading,
     logged,
     username,
+    paid,
     aiRemaining,
     refresh: refreshAccount,
   } = useAccount()
@@ -167,7 +169,7 @@ export default function MyResume() {
   }, [logged])
 
   useEffect(() => {
-    if (logged) void load()
+    if (logged && paid) void load()
     else {
       setResume(null)
       setAiProfile(null)
@@ -176,7 +178,7 @@ export default function MyResume() {
       setLocalRemaining(null)
       setShowReplace(false)
     }
-  }, [load, logged])
+  }, [load, logged, paid])
 
   const runAiProfile = async () => {
     aiAbortRef.current?.abort()
@@ -228,6 +230,10 @@ export default function MyResume() {
         <AccountAccessCard onAuthed={() => void refreshAccount()} />
       </div>
     )
+  }
+
+  if (!paid) {
+    return <PaymentWall onAccessChanged={() => refreshAccount()} />
   }
 
   if (loading) {
