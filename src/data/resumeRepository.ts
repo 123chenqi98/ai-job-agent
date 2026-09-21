@@ -30,16 +30,18 @@ async function requestJson<T>(
 
   if (!res.ok || !json || json.error) {
     const detail = json?.msg ? `：${json.msg}` : ''
-    // 简历原文 401：抛出可识别错误，由「我的简历」页显示局部解锁卡片（不做全局跳转）
+    // 统一给错误挂上 status：401 由「我的简历」页显示局部解锁卡片，404 归入「需要上传」态显示上传卡片
+    let message: string
     if (res.status === 401) {
-      const err = new Error(json?.msg ?? '查看简历需要访问密码') as Error & { status?: number }
-      err.status = 401
-      throw err
+      message = json?.msg ?? '查看简历需要访问密码'
+    } else if (res.status === 503) {
+      message = `火山方舟未配置${detail || '，请在 server/.env 补全 ARK_API_KEY 与 ARK_MODEL 后重启服务。'}`
+    } else {
+      message = `请求失败（HTTP ${res.status}）${detail}`
     }
-    if (res.status === 503) {
-      throw new Error(`火山方舟未配置${detail || '，请在 server/.env 补全 ARK_API_KEY 与 ARK_MODEL 后重启服务。'}`)
-    }
-    throw new Error(`请求失败（HTTP ${res.status}）${detail}`)
+    const err = new Error(message) as Error & { status?: number }
+    err.status = res.status
+    throw err
   }
   return json as T
 }
