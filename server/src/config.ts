@@ -38,9 +38,8 @@ export const config = {
     model: process.env.ARK_MODEL || '',
     baseUrl: normalizeBaseUrl(process.env.ARK_BASE_URL || 'ark.cn-beijing.volces.com'),
   },
-  // 站点访问门禁：配置密码哈希与签名密钥后所有 /api 数据接口均需登录；两者皆空则不启用（本地开发免登录）
+  // 账号会话：AUTH_SECRET 用于对登录 Cookie（aj_session）做 HMAC 签名
   auth: {
-    passwordHash: process.env.ACCESS_PASSWORD_HASH || '',
     secret: process.env.AUTH_SECRET || '',
   },
   port: Number(process.env.PORT || 8787),

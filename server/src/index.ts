@@ -45,7 +45,7 @@ import {
   resetPassword,
   setResume,
 } from './accounts/store.js'
-import { generateRecoveryCode, hashSecret, normalizeRecoveryCode, verifySecret } from './accounts/password.js'
+import { generateRecoveryCode, normalizeRecoveryCode } from './accounts/password.js'
 import { checkAiQuota, getAiRemaining, recordAiUsage } from './accounts/aiQuota.js'
 
 const app = express()
@@ -183,8 +183,8 @@ app.post('/api/account/register', registerIpLimit, async (req, res) => {
   try {
     const account = await createAccount({
       username: creds.username,
-      passwordHash: hashSecret(creds.password),
-      recoveryHash: hashSecret(normalizeRecoveryCode(recoveryCode)),
+      password: creds.password,
+      recoveryCode: normalizeRecoveryCode(recoveryCode),
     })
     setSessionCookie(req, res, authSecret, account.user_id)
     res.status(201).json({
@@ -211,7 +211,7 @@ app.post('/api/account/login', async (req, res) => {
     return
   }
   const account = await findByUsername(creds.username)
-  if (!account || !verifySecret(creds.password, account.password_hash)) {
+  if (!account || account.password !== creds.password) {
     recordLoginFailure(req, res)
     return
   }
@@ -236,11 +236,11 @@ app.post('/api/account/recover', recoverIpLimit, async (req, res) => {
     return
   }
   const account = await findByUsername(username)
-  if (!account || !account.recovery_hash || !verifySecret(recoveryCode, account.recovery_hash)) {
+  if (!account || !account.recovery_code || account.recovery_code !== recoveryCode) {
     res.status(401).json({ error: 'bad_recovery', msg: '账号名或恢复码错误。' })
     return
   }
-  await resetPassword(account.user_id, hashSecret(newPassword))
+  await resetPassword(account.user_id, newPassword)
   setSessionCookie(req, res, authSecret, account.user_id)
   res.json({ ok: true, msg: '密码已重置，恢复码已失效。' })
 })
