@@ -13,6 +13,8 @@ import type {
   AiProfile,
   AppConfig,
   ResumeResponse,
+  RuleEducation,
+  RuleExperience,
 } from '@/types/resume'
 import AccountAccessCard from './AccountAccessCard'
 import JdStudio from './JdStudio'
@@ -114,6 +116,91 @@ function AiProfileView({ profile }: { profile: AiProfile }) {
           </div>
         </div>
       ) : null}
+    </div>
+  )
+}
+
+function EmptyHint({ text }: { text: string }) {
+  return <p className={styles.emptyHint}>{text}</p>
+}
+
+function ExperienceBlock({
+  entries,
+  loose,
+}: {
+  entries: RuleExperience[]
+  loose?: string[]
+}) {
+  if (entries.length === 0 && (!loose || loose.length === 0)) {
+    return <EmptyHint text="简历中未识别到这部分内容，可在下方「解析原文」中核对。" />
+  }
+
+  return (
+    <div className={styles.expList}>
+      {entries.map((exp, idx) => (
+        <div key={idx} className={styles.expItem}>
+          <div className={styles.expHead}>
+            <span className={styles.expHeadText}>
+              {exp.org ? <span className={styles.expOrg}>{exp.org}</span> : null}
+              <span className={styles.expName}>{exp.title}</span>
+            </span>
+            <span className={styles.expPeriod}>{exp.period}</span>
+          </div>
+          {exp.bullets.length > 0 ? (
+            <ul className={styles.expBullets}>
+              {exp.bullets.map((b, i) => (
+                <li key={i}>{b}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ))}
+
+      {loose && loose.length > 0 ? (
+        <div className={styles.expLoose}>
+          <h4 className={styles.subLabel}>经历要点（简历未逐段标注归属，按原文顺序）</h4>
+          <ul className={styles.expBullets}>
+            {loose.map((b, i) => (
+              <li key={i}>{b}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function EducationBlock({ education }: { education: RuleEducation[] }) {
+  if (education.length === 0) {
+    return <EmptyHint text="简历中未识别到教育经历，可在下方「解析原文」中核对。" />
+  }
+  return (
+    <div className={styles.expList}>
+      {education.map((edu, idx) => (
+        <div key={idx} className={styles.expItem}>
+          <div className={styles.expHead}>
+            <span className={styles.expHeadText}>
+              <span className={styles.expOrg}>{edu.school}</span>
+              <span className={styles.expName}>
+                {[edu.major, edu.degree].filter(Boolean).join(' · ')}
+              </span>
+            </span>
+            <span className={styles.expPeriod}>{edu.period}</span>
+          </div>
+          <div className={styles.expMetaRow}>
+            {edu.gpa ? <span>GPA {edu.gpa}</span> : null}
+            {edu.rank ? <span>{edu.rank}</span> : null}
+            {edu.graduation_year ? <span>{edu.graduation_year} 届</span> : null}
+          </div>
+          {edu.highlights.length > 0 ? (
+            <ul className={styles.expBullets}>
+              {edu.highlights.map((h, i) => (
+                <li key={i}>{h}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ))}
     </div>
   )
 }
@@ -386,85 +473,67 @@ export default function MyResume() {
           </div>
         </SectionCard>
 
-        {profile.education ? (
-          <SectionCard title="教育背景">
-            <div className={styles.eduSchool}>{profile.education.school}</div>
-            <div className={styles.eduMajor}>
-              {[profile.education.major, profile.education.degree].filter(Boolean).join(' · ')}
-            </div>
-            <dl className={styles.infoList}>
-              <div>
-                <dt>在读时间</dt>
-                <dd>{profile.education.period}</dd>
-              </div>
-              <div>
-                <dt>毕业年份</dt>
-                <dd>{profile.education.graduation_year ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>GPA</dt>
-                <dd>
-                  {profile.education.gpa ?? '—'}
-                  {profile.education.rank ? `（${profile.education.rank}）` : ''}
-                </dd>
-              </div>
-            </dl>
-            {profile.education.highlights.length > 0 ? (
-              <ul className={styles.eduHighlights}>
-                {profile.education.highlights.map((h, i) => (
-                  <li key={i}>{h}</li>
-                ))}
-              </ul>
-            ) : null}
-          </SectionCard>
-        ) : null}
       </div>
 
-      <SectionCard title="实习经历">
-        <div className={styles.timelineList}>
-          {profile.internships.map((exp, idx) => (
-            <div key={idx} className={styles.timelineItem}>
-              <span className={styles.timelinePeriod}>{exp.period}</span>
-              <span className={styles.timelineTitle}>{exp.title}</span>
-            </div>
-          ))}
-        </div>
-        <p className={styles.sectionFootnote}>
-          规则画像按时间行识别出 {profile.internships.length} 段实习；具体 bullet
-          的段落归属见下方 AI 深度画像。
-        </p>
+      <SectionCard title="教育背景">
+        <EducationBlock education={profile.education} />
       </SectionCard>
+
+      <SectionCard title="实习经历">
+        <ExperienceBlock entries={profile.internships} loose={profile.internship_bullets} />
+      </SectionCard>
+
+      {profile.work_experiences.length > 0 ? (
+        <SectionCard title="正式工作经历">
+          <ExperienceBlock entries={profile.work_experiences} />
+        </SectionCard>
+      ) : null}
 
       <SectionCard title="项目经历">
-        <div className={styles.timelineList}>
-          {profile.projects.map((exp, idx) => (
-            <div key={idx} className={styles.timelineItem}>
-              <span className={styles.timelinePeriod}>{exp.period}</span>
-              <span className={styles.timelineTitle}>{exp.title}</span>
-            </div>
-          ))}
-        </div>
+        <ExperienceBlock entries={profile.projects} />
       </SectionCard>
 
+      {profile.awards.length > 0 ? (
+        <SectionCard title="荣誉奖项">
+          <ul className={styles.metricList}>
+            {profile.awards.map((a, idx) => (
+              <li key={idx}>{a}</li>
+            ))}
+          </ul>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="专业技能">
-        <div className={styles.skillGroupList}>
-          {profile.skill_groups.map((group) => (
-            <div key={group.name} className={styles.skillGroupRow}>
-              <span className={styles.skillGroupName}>{group.name}</span>
-              <span className={styles.skillGroupDetail}>{group.detail}</span>
-            </div>
-          ))}
-        </div>
-        <h4 className={styles.subLabel}>技能词命中（确定性匹配）</h4>
-        <ChipList items={profile.skill_keywords} tone="blue" />
+        {profile.skill_groups.length === 0 && profile.skill_keywords.length === 0 ? (
+          <EmptyHint text="简历中未识别到专业技能，可在下方「解析原文」中核对。" />
+        ) : (
+          <>
+            {profile.skill_groups.length > 0 ? (
+              <div className={styles.skillGroupList}>
+                {profile.skill_groups.map((group) => (
+                  <div key={group.name} className={styles.skillGroupRow}>
+                    <span className={styles.skillGroupName}>{group.name}</span>
+                    <span className={styles.skillGroupDetail}>{group.detail}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <h4 className={styles.subLabel}>技能词命中（确定性匹配）</h4>
+            <ChipList items={profile.skill_keywords} tone="blue" />
+          </>
+        )}
       </SectionCard>
 
       <SectionCard title="量化成果摘录">
-        <ul className={styles.metricList}>
-          {profile.metrics.map((m, idx) => (
-            <li key={idx}>{m}</li>
-          ))}
-        </ul>
+        {profile.metrics.length === 0 ? (
+          <EmptyHint text="简历中未识别到带数字的量化成果，可在下方「解析原文」中核对。" />
+        ) : (
+          <ul className={styles.metricList}>
+            {profile.metrics.map((m, idx) => (
+              <li key={idx}>{m}</li>
+            ))}
+          </ul>
+        )}
       </SectionCard>
 
       <SectionCard title="AI 深度画像（火山方舟豆包）">
@@ -511,11 +580,15 @@ export default function MyResume() {
       </SectionCard>
 
       <SectionCard title="自我评价">
-        <ul className={styles.bulletList}>
-          {profile.evaluations.map((e, idx) => (
-            <li key={idx}>{e}</li>
-          ))}
-        </ul>
+        {profile.evaluations.length === 0 ? (
+          <EmptyHint text="简历中未识别到自我评价，可在下方「解析原文」中核对。" />
+        ) : (
+          <ul className={styles.bulletList}>
+            {profile.evaluations.map((e, idx) => (
+              <li key={idx}>{e}</li>
+            ))}
+          </ul>
+        )}
       </SectionCard>
 
       <SectionCard title="解析原文（透明核对）">

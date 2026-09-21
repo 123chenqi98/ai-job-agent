@@ -20,9 +20,11 @@ export interface RuleEducation {
   highlights: string[]
 }
 
-export interface ExperienceHead {
-  period: string
+export interface RuleExperience {
+  org: string | null
   title: string
+  period: string
+  bullets: string[]
 }
 
 export interface RuleProfile {
@@ -32,13 +34,15 @@ export interface RuleProfile {
   email: string | null
   links: string[]
   politics: string | null
-  education: RuleEducation | null
+  education: RuleEducation[]
   skill_groups: Array<{ name: string; detail: string }>
   skill_keywords: string[]
-  internships: ExperienceHead[]
-  projects: ExperienceHead[]
+  internships: RuleExperience[]
+  work_experiences: RuleExperience[]
+  projects: RuleExperience[]
+  // 简历未逐段标注归属时的段落级实习要点
   internship_bullets: string[]
-  project_bullets: string[]
+  awards: string[]
   metrics: string[]
   evaluations: string[]
 }

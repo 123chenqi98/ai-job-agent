@@ -205,6 +205,86 @@
   color: var(--color-text-disabled);
 }
 
+/* ---- 经历条目（实习 / 工作 / 项目） ---- */
+.expList {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.expItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.expHead {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.expHeadText {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.expOrg {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.expName {
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
+}
+
+.expPeriod {
+  flex-shrink: 0;
+  font-size: 12.5px;
+  color: var(--color-text-disabled);
+}
+
+.expMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+.expBullets {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text);
+}
+
+.expBullets li::marker {
+  color: var(--color-primary);
+}
+
+.expLoose {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.emptyHint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-disabled);
+}
+
 /* ---- 技能 ---- */
 .skillGroupList {
   display: flex;
@@ -1197,5 +1277,10 @@
 
   .recoveryBox {
     font-size: 18px;
+  }
+
+  .expHead {
+    flex-direction: column;
+    gap: 4px;
   }
 }
