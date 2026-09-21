@@ -5,6 +5,7 @@ import { makeEvalId, saveEvalRecord } from '@/data/evaluationHistory'
 import type { JdMatch } from '@/types/resume'
 import EvaluateReport from './EvaluateReport'
 import EvaluateTabs from './EvaluateTabs'
+import AccessNotice, { useResumeReady } from './EvaluateGate'
 import styles from './Evaluate.module.css'
 
 const MAX_JOBS = 6
@@ -98,6 +99,7 @@ export default function BatchEvaluate() {
   const [formError, setFormError] = useState<string | null>(null)
   const [retryingId, setRetryingId] = useState<number | null>(null)
   const [cancelledNote, setCancelledNote] = useState(false)
+  const resumeReady = useResumeReady()
   const abortRef = useRef<AbortController | null>(null)
   const reportRef = useRef<HTMLDivElement | null>(null)
 
@@ -149,6 +151,7 @@ export default function BatchEvaluate() {
   }
 
   const runAll = async () => {
+    if (!resumeReady.ready) return
     if (items.some((it) => it.jd.trim().length < 30)) {
       setFormError('每个岗位都需要粘贴完整 JD（至少 30 字），请检查后再开始。')
       return
@@ -218,6 +221,7 @@ export default function BatchEvaluate() {
 
   // 失败项单条重跑：不重跑其他岗位，成功后即时入库并入排名
   const retryOne = async (id: number) => {
+    if (!resumeReady.ready) return
     const target = items.find((it) => it.id === id)
     if (!target || target.jd.trim().length < 30) return
     const controller = new AbortController()
@@ -279,6 +283,7 @@ export default function BatchEvaluate() {
             </span>
           }
         >
+          {!resumeReady.ready && resumeReady.reason ? <AccessNotice /> : null}
           <div className={styles.batchList}>
             {items.map((item, index) => (
               <div key={item.id} className={styles.batchItem}>

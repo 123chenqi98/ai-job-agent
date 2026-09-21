@@ -76,6 +76,7 @@ export interface AiProfile {
 export interface AiProfileResponse {
   engine: string
   generated_at: string
+  ai_remaining?: number
   profile: AiProfile
 }
 
@@ -106,6 +107,7 @@ export interface JdMatch {
 export interface JdMatchResponse {
   engine: string
   generated_at: string
+  ai_remaining?: number
   match: JdMatch
 }
 
@@ -127,6 +129,7 @@ export interface BulletRewrites {
 export interface BulletRewritesResponse {
   engine: string
   generated_at: string
+  ai_remaining?: number
   rewrites: BulletRewrites
 }
 
@@ -148,10 +151,54 @@ export interface InterviewPrep {
 export interface InterviewPrepResponse {
   engine: string
   generated_at: string
+  ai_remaining?: number
   prep: InterviewPrep
 }
 
 export interface JdJobMeta {
   company?: string
   title?: string
+}
+
+// ---- 多用户账号 ----
+
+export interface AccountResumeMeta {
+  filename: string
+  original_name: string
+  size: number
+  uploaded_at: string
+}
+
+export type AccountStatus =
+  | { logged: false; ark_configured?: boolean }
+  | {
+      logged: true
+      username: string
+      has_resume: boolean
+      resume: AccountResumeMeta | null
+      ai_remaining: number
+    }
+
+export interface RegisterResponse {
+  ok: true
+  username: string
+  recovery_code: string
+  msg: string
+}
+
+export interface LoginResponse {
+  ok: true
+  username: string
+  has_resume: boolean
+}
+
+export interface ResumeUploadResponse {
+  ok: true
+  has_resume: boolean
+  size: number
+}
+
+// AI 响应统一附带剩余次数（服务端新增字段，旧字段保持不变）
+export interface AiUsageMeta {
+  ai_remaining?: number
 }

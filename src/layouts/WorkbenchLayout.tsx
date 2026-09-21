@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { AuthProvider } from '@/auth/AuthProvider'
 import { WorkbenchDataProvider } from '@/state/WorkbenchStore'
 import styles from './WorkbenchLayout.module.css'
 
@@ -96,6 +97,7 @@ export default function WorkbenchLayout() {
     location.pathname === '/resume' || location.pathname.startsWith('/evaluate')
 
   return (
+    <AuthProvider>
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
@@ -141,7 +143,7 @@ export default function WorkbenchLayout() {
             {isFeishuConnected
               ? '飞书多维表格 · 只读同步'
               : isLocalResume
-                ? '本机简历 · 规则解析 + 豆包 AI'
+                ? '个人简历 · 规则解析 + 豆包 AI'
                 : 'AI 求职决策工作台'}
           </span>
         </header>
@@ -152,5 +154,6 @@ export default function WorkbenchLayout() {
         </section>
       </div>
     </div>
+    </AuthProvider>
   )
 }

@@ -887,3 +887,315 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- 账号访问卡片（未登录 / 注册 / 找回） ---- */
+
+.accessWrap {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 64vh;
+  padding: 24px 8px;
+}
+
+.accessCard {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  padding: 30px 30px 24px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.accessBrand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+}
+
+.accessTitle {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.accessSubtitle {
+  margin: 8px 0 20px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--color-text-secondary);
+}
+
+.accessForm {
+  display: flex;
+  flex-direction: column;
+}
+
+.fieldLabel {
+  margin: 12px 0 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.fieldLabel:first-child {
+  margin-top: 0;
+}
+
+.accessInput {
+  height: 40px;
+  padding: 0 12px;
+  font-size: 13.5px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.accessInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.accessInput:disabled {
+  background: var(--color-surface-muted, #f5f6f8);
+  cursor: not-allowed;
+}
+
+.accessError {
+  margin-top: 12px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--color-danger);
+  background: var(--color-danger-light);
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-md);
+}
+
+.accessSubmit {
+  margin-top: 18px;
+  height: 42px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.accessSubmit:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.accessSubmit:disabled {
+  background: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.accessSwitch {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.accessSwitch button {
+  padding: 2px;
+  font-size: 12px;
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.accessSwitch button:hover {
+  text-decoration: underline;
+}
+
+.recoveryBox {
+  margin-bottom: 4px;
+  padding: 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-align: center;
+  color: var(--color-primary);
+  background: var(--color-primary-light, #eff5ff);
+  border: 1px dashed var(--color-primary-border, #b9d3ff);
+  border-radius: var(--radius-md);
+  user-select: all;
+}
+
+/* ---- 简历上传 ---- */
+
+.uploadForm {
+  display: flex;
+  flex-direction: column;
+}
+
+.dropZone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 26px 16px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-muted, #f7f8fa);
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.dropZone:hover,
+.dropZoneActive {
+  color: var(--color-primary);
+  background: var(--color-primary-light, #eff5ff);
+  border-color: var(--color-primary);
+}
+
+.dropPicked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.dropName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dropSize {
+  font-size: 11.5px;
+  color: var(--color-text-disabled);
+}
+
+.uploadActions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.uploadActions .accessSubmit {
+  flex: 1;
+}
+
+.textButton {
+  padding: 2px;
+  font-size: 12.5px;
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.textButton:hover {
+  text-decoration: underline;
+}
+
+/* ---- 已登录头部：账号条 ---- */
+
+.accountBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.accountUser {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.accountAvatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border-radius: 50%;
+}
+
+.quotaPill {
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-light, #eff5ff);
+  border: 1px solid var(--color-primary-border, #b9d3ff);
+  border-radius: 999px;
+}
+
+.headerButtons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.headerButtons .refreshButton,
+.headerButtons .lockButton {
+  text-decoration: none;
+}
+
+.replaceHint {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 720px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .headerActions {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .accountBar {
+    justify-content: space-between;
+  }
+
+  .headerButtons {
+    justify-content: flex-start;
+  }
+
+  .accessWrap {
+    padding: 8px 0;
+  }
+
+  .accessCard {
+    padding: 24px 20px 20px;
+  }
+
+  .recoveryBox {
+    font-size: 18px;
+  }
+}

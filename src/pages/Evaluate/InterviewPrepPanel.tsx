@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { buildInterviewPrep } from '@/data/resumeRepository'
 import { getEvalRecord, saveEvalPrep } from '@/data/evaluationHistory'
 import type { InterviewPrep, InterviewQuestion } from '@/types/resume'
+import AccessNotice, { useResumeReady } from './EvaluateGate'
 import styles from './Evaluate.module.css'
 
 const CATEGORY_LABEL: Record<InterviewQuestion['category'], string> = {
@@ -37,9 +38,15 @@ export default function InterviewPrepPanel({
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [gateVisible, setGateVisible] = useState(false)
+  const resumeReady = useResumeReady()
   const abortRef = useRef<AbortController | null>(null)
 
   const generate = async () => {
+    if (!resumeReady.ready) {
+      setGateVisible(true)
+      return
+    }
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -57,7 +64,13 @@ export default function InterviewPrepPanel({
       }
     } catch (err) {
       if (!isAbortError(err)) {
-        setError(err instanceof Error ? err.message : '生成失败，请稍后重试。')
+        const status = (err as { status?: number }).status
+        if (status === 401 || status === 404) {
+          setGateVisible(true)
+          setError(null)
+        } else {
+          setError(err instanceof Error ? err.message : '生成失败，请稍后重试。')
+        }
       }
     } finally {
       if (!controller.signal.aborted) setLoading(false)
@@ -81,6 +94,7 @@ export default function InterviewPrepPanel({
           <button type="button" className={styles.primaryButton} onClick={() => void generate()}>
             生成面试准备包（约 20–40 秒）
           </button>
+          {gateVisible ? <AccessNotice onClose={() => setGateVisible(false)} /> : null}
           {error ? <div className={styles.errorBox}>{error}</div> : null}
         </div>
       ) : null}

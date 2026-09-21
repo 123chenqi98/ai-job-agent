@@ -1,25 +1,95 @@
-// 简历访问解锁通道：网站默认公开，仅「我的简历」原文需要密码；
-// 登录态由服务端 HttpOnly Cookie 维护（7 天有效），前端只负责提交密码。
+import type {
+  AccountStatus,
+  LoginResponse,
+  RegisterResponse,
+  ResumeUploadResponse,
+} from '@/types/resume'
 
-export async function login(
-  password: string,
-): Promise<{ ok: true } | { ok: false; status: number; msg: string; retryAfter?: number }> {
-  const res = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
-  })
-  const json = (await res.json().catch(() => null)) as { msg?: string; retry_after?: number } | null
-  if (res.ok) return { ok: true }
+// 多用户账号通道：登录态由服务端 HttpOnly Cookie（aj_session，7 天）维护。
+// 前端不接触任何密码哈希，只负责提交与读取状态。
+
+export interface ApiFailure {
+  ok: false
+  status: number
+  msg: string
+  retryAfter?: number
+}
+
+export type ApiResult<T> = ({ ok: true } & T) | ApiFailure
+
+async function postJson<T>(path: string, body: unknown): Promise<ApiResult<T>> {
+  let res: Response
+  try {
+    res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    return { ok: false, status: 0, msg: '网络异常，请检查连接后重试。' }
+  }
+  const json = (await res.json().catch(() => null)) as ({ msg?: string; retry_after?: number } & Partial<T>) | null
+  if (res.ok && json) return { ok: true, ...(json as T) }
   return {
     ok: false,
     status: res.status,
-    msg: json?.msg ?? (res.status === 429 ? '尝试过于频繁，请稍后再试。' : '验证失败，请重试。'),
+    msg: json?.msg ?? (res.status === 429 ? '操作过于频繁，请稍后再试。' : '请求失败，请重试。'),
     retryAfter: typeof json?.retry_after === 'number' ? json.retry_after : undefined,
   }
 }
 
-// 主动上锁：清除 7 天免密 Cookie，回到密码卡片（共用电脑场景）
+export function fetchAccountStatus(signal?: AbortSignal): Promise<AccountStatus> {
+  return fetch('/api/account/status', { signal })
+    .then((res) => res.json() as Promise<AccountStatus>)
+    .catch(() => ({ logged: false }) as AccountStatus)
+}
+
+export function register(username: string, password: string): Promise<ApiResult<RegisterResponse>> {
+  return postJson<RegisterResponse>('/api/account/register', { username, password })
+}
+
+export function login(username: string, password: string): Promise<ApiResult<LoginResponse>> {
+  return postJson<LoginResponse>('/api/account/login', { username, password })
+}
+
 export async function logout(): Promise<void> {
-  await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined)
+  await fetch('/api/account/logout', { method: 'POST' }).catch(() => undefined)
+}
+
+export function recover(
+  username: string,
+  recoveryCode: string,
+  newPassword: string,
+): Promise<ApiResult<{ msg: string }>> {
+  return postJson('/api/account/recover', {
+    username,
+    recovery_code: recoveryCode,
+    new_password: newPassword,
+  })
+}
+
+// 简历上传走 multipart/form-data；服务端二次校验 PDF 头与可解析性
+export async function uploadResume(file: File): Promise<ApiResult<ResumeUploadResponse>> {
+  const form = new FormData()
+  form.append('file', file)
+  let res: Response
+  try {
+    res = await fetch('/api/account/resume', { method: 'POST', body: form })
+  } catch {
+    return { ok: false, status: 0, msg: '网络异常，上传失败，请重试。' }
+  }
+  const json = (await res.json().catch(() => null)) as ({ msg?: string } & Partial<ResumeUploadResponse>) | null
+  if (res.ok && json) return json as ApiResult<ResumeUploadResponse>
+  return { ok: false, status: res.status, msg: json?.msg ?? '上传失败，请重试。' }
+}
+
+export async function deleteResume(): Promise<ApiResult<{ has_resume: boolean }>> {
+  try {
+    const res = await fetch('/api/account/resume', { method: 'DELETE' })
+    const json = (await res.json().catch(() => null)) as { msg?: string; has_resume?: boolean } | null
+    if (res.ok) return { ok: true, has_resume: json?.has_resume ?? false }
+    return { ok: false, status: res.status, msg: json?.msg ?? '删除失败，请重试。' }
+  } catch {
+    return { ok: false, status: 0, msg: '网络异常，请重试。' }
+  }
 }

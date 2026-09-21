@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { logout } from '@/auth/authClient'
-import LoginPage from '@/auth/LoginPage'
+import { deleteResume, logout } from '@/auth/authClient'
+import { useAccount } from '@/auth/AuthProvider'
 import SectionCard from '@/components/common/SectionCard'
 import StateView from '@/components/common/StateView'
 import {
@@ -13,7 +13,9 @@ import type {
   AppConfig,
   ResumeResponse,
 } from '@/types/resume'
+import AccountAccessCard from './AccountAccessCard'
 import JdStudio from './JdStudio'
+import ResumeUploadCard, { ResumeUploadForm } from './ResumeUploadCard'
 import styles from './MyResume.module.css'
 
 function isAbortError(err: unknown): boolean {
@@ -116,11 +118,22 @@ function AiProfileView({ profile }: { profile: AiProfile }) {
 }
 
 export default function MyResume() {
+  const {
+    loading: accountLoading,
+    logged,
+    username,
+    aiRemaining,
+    refresh: refreshAccount,
+  } = useAccount()
+
   const [resume, setResume] = useState<ResumeResponse | null>(null)
   const [config, setConfig] = useState<AppConfig | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [locked, setLocked] = useState(false)
+  const [showReplace, setShowReplace] = useState(false)
+  // AI 调用成功后服务端返回最新剩余次数，本地即时覆盖全局状态里的旧值
+  const [localRemaining, setLocalRemaining] = useState<number | null>(null)
 
   const [aiProfile, setAiProfile] = useState<AiProfile | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
@@ -131,6 +144,7 @@ export default function MyResume() {
     const controller = new AbortController()
     setLoading(true)
     setError(null)
+    setNotFound(false)
     try {
       const [configRes, resumeRes] = await Promise.all([
         getAppConfig(controller.signal),
@@ -140,19 +154,29 @@ export default function MyResume() {
       setResume(resumeRes)
     } catch (err) {
       if (isAbortError(err)) return
-      if ((err as { status?: number }).status === 401) {
-        setLocked(true)
+      const status = (err as { status?: number }).status
+      // 401（未登录）/ 404（未上传简历）都归入「需要上传」态
+      if (status === 401 || status === 404) {
+        setNotFound(true)
         return
       }
       setError(errorText(err))
     } finally {
       if (!controller.signal.aborted) setLoading(false)
     }
-  }, [])
+  }, [logged])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    if (logged) void load()
+    else {
+      setResume(null)
+      setAiProfile(null)
+      setNotFound(false)
+      setError(null)
+      setLocalRemaining(null)
+      setShowReplace(false)
+    }
+  }, [load, logged])
 
   const runAiProfile = async () => {
     aiAbortRef.current?.abort()
@@ -163,6 +187,7 @@ export default function MyResume() {
     try {
       const res = await generateAiProfile(controller.signal)
       setAiProfile(res.profile)
+      if (typeof res.ai_remaining === 'number') setLocalRemaining(res.ai_remaining)
     } catch (err) {
       if (!isAbortError(err)) setAiError(errorText(err))
     } finally {
@@ -170,29 +195,58 @@ export default function MyResume() {
     }
   }
 
-  const handleLock = async () => {
+  const handleLogout = async () => {
     await logout()
     setResume(null)
     setAiProfile(null)
-    setLocked(true)
+    await refreshAccount()
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm('确定删除已上传的简历吗？简历文件与解析内容都会从服务器移除。')) return
+    const result = await deleteResume()
+    if (result.ok) {
+      setResume(null)
+      setAiProfile(null)
+      await refreshAccount()
+    } else {
+      setError(result.msg)
+    }
+  }
+
+  if (accountLoading) {
+    return (
+      <div className={styles.page}>
+        <StateView title="正在加载账号状态…" description="首次进入需要与服务端确认你的登录状态。" />
+      </div>
+    )
+  }
+
+  if (!logged) {
+    return (
+      <div className={styles.page}>
+        <AccountAccessCard onAuthed={() => void refreshAccount()} />
+      </div>
+    )
   }
 
   if (loading) {
     return (
       <div className={styles.page}>
-        <StateView title="正在解析本地简历…" description="正在读取 server/data/resume.pdf 的文本层，请稍候。" />
+        <StateView title="正在解析你的简历…" description="正在读取简历 PDF 的文本层，请稍候。" />
       </div>
     )
   }
 
-  if (locked) {
+  if (notFound) {
     return (
       <div className={styles.page}>
-        <LoginPage
-          onSuccess={() => {
-            setLocked(false)
+        <ResumeUploadCard
+          onUploaded={async () => {
+            await refreshAccount()
             void load()
           }}
+          onLogout={() => void handleLogout()}
         />
       </div>
     )
@@ -207,7 +261,7 @@ export default function MyResume() {
             <>
               {error}
               <br />
-              请确认简历 PDF 已放到 server/data/resume.pdf，或在 server/.env 配置 RESUME_PDF_PATH，并运行 npm run dev:all。
+              可重新解析，或更换一份文本可选的 PDF 简历（图片扫描版需先 OCR）。
             </>
           }
           actions={
@@ -222,6 +276,7 @@ export default function MyResume() {
 
   const { profile, source } = resume
   const arkConfigured = config?.ark_configured ?? false
+  const remaining = localRemaining ?? aiRemaining ?? null
 
   return (
     <div className={styles.page}>
@@ -229,26 +284,61 @@ export default function MyResume() {
         <div>
           <h1 className={styles.title}>我的简历</h1>
           <p className={styles.subtitle}>
-            简历 PDF 在本机解析为结构化画像，作为岗位匹配与定向改写的事实来源；飞书岗位数据不会回写。
+            这是你的私人简历空间：内容仅你本人可见，作为岗位匹配与定向改写的事实来源；飞书岗位数据不会回写。
           </p>
         </div>
         <div className={styles.headerActions}>
-          <button type="button" className={styles.refreshButton} onClick={() => void load()}>
-            重新解析
-          </button>
-          <button
-            type="button"
-            className={styles.lockButton}
-            title="立即清除本机解锁状态，下次查看需重新输入密码"
-            onClick={() => void handleLock()}
-          >
-            锁定简历
-          </button>
+          <div className={styles.accountBar}>
+            <span className={styles.accountUser}>
+              <span className={styles.accountAvatar}>{username?.slice(0, 1).toUpperCase()}</span>
+              {username}
+            </span>
+            <span className={styles.quotaPill}>今日 AI 剩余 {remaining ?? '—'} 次</span>
+          </div>
+          <div className={styles.headerButtons}>
+            <button type="button" className={styles.refreshButton} onClick={() => void load()}>
+              重新解析
+            </button>
+            <button
+              type="button"
+              className={styles.refreshButton}
+              onClick={() => setShowReplace((v) => !v)}
+            >
+              {showReplace ? '收起更换' : '更换简历'}
+            </button>
+            <a className={styles.refreshButton} href="/api/account/resume/file">
+              下载原件
+            </a>
+            <button type="button" className={styles.lockButton} onClick={() => void handleDelete()}>
+              删除简历
+            </button>
+            <button
+              type="button"
+              className={styles.lockButton}
+              title="退出登录，清除本机登录态"
+              onClick={() => void handleLogout()}
+            >
+              退出登录
+            </button>
+          </div>
           <span className={styles.syncMeta}>
             {source.file_name} · {source.pages} 页 · {formatTime(source.parsed_at)}
           </span>
         </div>
       </header>
+
+      {showReplace ? (
+        <SectionCard title="更换简历">
+          <p className={styles.replaceHint}>上传新简历会直接覆盖当前简历，历史 AI 画像需重新生成。</p>
+          <ResumeUploadForm
+            onUploaded={async () => {
+              setShowReplace(false)
+              await refreshAccount()
+              void load()
+            }}
+          />
+        </SectionCard>
+      ) : null}
 
       <div className={styles.overviewGrid}>
         <SectionCard>
@@ -430,8 +520,8 @@ export default function MyResume() {
       </SectionCard>
 
       <p className={styles.note}>
-        解析引擎：{source.engine}。简历文件仅保存在本机 server/data/（已加入 .gitignore）；规则画像完全在本地生成，只有点击「AI
-        深度画像 / 匹配分析 / 简历改写」时，简历文本与所粘贴 JD 才会经本地服务发送给火山方舟豆包，工作台不向飞书写入、不执行自动投递。
+        解析引擎：{source.engine}。简历文件按账号独立存储、不入库 Git；规则画像在服务器本地生成，只有点击「AI
+        深度画像 / 匹配分析 / 简历改写」时，你的简历文本与所粘贴 JD 才会经服务端发送给火山方舟豆包。工作台不向飞书写入、不执行自动投递；AI 每账号每天 10 次（北京时间 0 点重置）。
       </p>
     </div>
   )

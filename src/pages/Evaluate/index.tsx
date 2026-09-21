@@ -7,6 +7,7 @@ import { makeEvalId, saveEvalRecord } from '@/data/evaluationHistory'
 import type { AppConfig, JdMatch, JdMatchResponse } from '@/types/resume'
 import EvaluateReport from './EvaluateReport'
 import EvaluateTabs from './EvaluateTabs'
+import AccessNotice, { useResumeReady } from './EvaluateGate'
 import styles from './Evaluate.module.css'
 
 const SAMPLE_JD =
@@ -78,6 +79,9 @@ export default function Evaluate() {
   const [result, setResult] = useState<EvalResult | null>(() => loadLastResult())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // 会话过期等情况下前端状态滞后，服务端 401/404 时强制再亮一次门禁卡
+  const [gateVisible, setGateVisible] = useState(false)
+  const resumeReady = useResumeReady()
   const abortRef = useRef<AbortController | null>(null)
   const reportRef = useRef<HTMLDivElement | null>(null)
 
@@ -114,6 +118,10 @@ export default function Evaluate() {
   }, [])
 
   const runMatch = async () => {
+    if (resumeReady.reason !== null && !resumeReady.ready) {
+      setGateVisible(true)
+      return
+    }
     if (jd.trim().length < 30) {
       setError('请粘贴完整 JD（至少 30 字），过短无法做可靠评估。')
       return
@@ -140,7 +148,15 @@ export default function Evaluate() {
         }
       }
     } catch (err) {
-      if (!isAbortError(err)) setError(errorText(err))
+      if (!isAbortError(err)) {
+        const status = (err as { status?: number }).status
+        if (status === 401 || status === 404) {
+          setGateVisible(true)
+          setError(null)
+        } else {
+          setError(errorText(err))
+        }
+      }
     } finally {
       if (!controller.signal.aborted) setLoading(false)
     }
@@ -175,7 +191,7 @@ export default function Evaluate() {
       <header className={styles.header}>
         <h1 className={styles.title}>岗位评估</h1>
         <p className={styles.subtitle}>
-          粘贴目标岗位完整 JD，豆包对照本机简历做硬门槛核对与四维可解释评分，输出一份「AI 分析、你来决策」的投递评估报告。
+          粘贴目标岗位完整 JD，豆包对照你的简历做硬门槛核对与四维可解释评分，输出一份「AI 分析、你来决策」的投递评估报告。
         </p>
         <EvaluateTabs />
       </header>
@@ -212,10 +228,15 @@ export default function Evaluate() {
             <textarea
               className={styles.jdInput}
               rows={8}
-              placeholder="把目标岗位的完整 JD 粘贴到这里（岗位职责 + 任职要求）。评估时 JD 与本机简历文本会经本地服务发送给豆包。"
+              placeholder="把目标岗位的完整 JD 粘贴到这里（岗位职责 + 任职要求）。评估时 JD 与你的简历文本会经服务端发送给豆包。"
               value={jd}
               onChange={(e) => setJd(e.target.value)}
             />
+            {!resumeReady.ready ? (
+              resumeReady.reason ? <AccessNotice /> : null
+            ) : gateVisible ? (
+              <AccessNotice onClose={() => setGateVisible(false)} />
+            ) : null}
             <div className={styles.actionRow}>
               <button
                 type="button"
