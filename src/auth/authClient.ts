@@ -113,6 +113,23 @@ export function revealAdminPasswords(
   return postJson<{ users: AdminUserWithPassword[] }>('/api/admin/reveal', { password })
 }
 
+// 站长删除账号：服务端连带删除其简历文件；禁止删除自己（返回 400）
+export function deleteAdminUser(userId: string): Promise<ApiResult<{ deleted: string }>> {
+  return fetch(`/api/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' })
+    .then(async (res) => {
+      const json = (await res.json().catch(() => null)) as
+        | ({ msg?: string; deleted?: string } & Partial<{ deleted: string }>)
+        | null
+      if (res.ok && json) return { ok: true as const, deleted: json.deleted ?? '' }
+      return {
+        ok: false as const,
+        status: res.status,
+        msg: json?.msg ?? '删除失败，请重试。',
+      }
+    })
+    .catch(() => ({ ok: false as const, status: 0, msg: '网络异常，删除失败，请重试。' }))
+}
+
 export async function deleteResume(): Promise<ApiResult<{ has_resume: boolean }>> {
   try {
     const res = await fetch('/api/account/resume', { method: 'DELETE' })

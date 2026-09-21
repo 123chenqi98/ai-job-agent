@@ -183,6 +183,12 @@ export async function clearResume(userId: string): Promise<void> {
   if (Number(info.changes) === 0) throw new AccountError('account_missing', '账号不存在。')
 }
 
+// 删除账号：仅站长管理接口调用，返回被删记录数（0 表示账号不存在）
+export async function deleteAccount(userId: string): Promise<number> {
+  const info = db().prepare('DELETE FROM accounts WHERE user_id = ?').run(userId)
+  return Number(info.changes)
+}
+
 export async function resetPassword(userId: string, password: string): Promise<void> {
   const info = db()
     .prepare("UPDATE accounts SET password = ?, recovery_code = '' WHERE user_id = ?")

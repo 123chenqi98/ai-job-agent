@@ -46,6 +46,7 @@ export function useAccount() {
     status,
     loading,
     logged,
+    userId: logged ? status.user_id : null,
     username: logged ? status.username : null,
     hasResume: logged ? status.has_resume : false,
     aiRemaining: logged ? status.ai_remaining : null,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAccount } from '@/auth/AuthProvider'
-import { fetchAdminUsers, revealAdminPasswords } from '@/auth/authClient'
+import { deleteAdminUser, fetchAdminUsers, revealAdminPasswords } from '@/auth/authClient'
 import type { AdminUserItem } from '@/types/resume'
 import styles from './AdminUsers.module.css'
 
@@ -69,7 +69,7 @@ function PasswordCell({
 }
 
 export default function AdminUsers() {
-  const { loading: authLoading } = useAccount()
+  const { loading: authLoading, userId } = useAccount()
   const [listState, setListState] = useState<ListState>('loading')
   const [users, setUsers] = useState<AdminUserItem[]>([])
 
@@ -78,6 +78,9 @@ export default function AdminUsers() {
   const [revealError, setRevealError] = useState('')
   const [passwordMap, setPasswordMap] = useState<Record<string, string>>({})
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set())
+
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState('')
 
   const unlocked = Object.keys(passwordMap).length > 0
 
@@ -139,6 +142,38 @@ export default function AdminUsers() {
     )
   }
 
+  async function handleDelete(u: AdminUserItem) {
+    if (deletingId) return
+    const confirmed = window.confirm(
+      `确定删除账号「${u.username}」吗？\n该账号的简历文件与所有记录将被永久删除，无法恢复。`,
+    )
+    if (!confirmed) return
+    setDeletingId(u.user_id)
+    setActionError('')
+    const result = await deleteAdminUser(u.user_id)
+    setDeletingId(null)
+    if (result.ok) {
+      await loadUsers()
+      return
+    }
+    setActionError(result.msg)
+  }
+
+  function actionCell(u: AdminUserItem) {
+    if (u.user_id === userId) return <span className={styles.muted}>当前账号</span>
+    return (
+      <button
+        type="button"
+        className={styles.lockButton}
+        disabled={deletingId === u.user_id}
+        title="删除该账号及其简历"
+        onClick={() => void handleDelete(u)}
+      >
+        {deletingId === u.user_id ? '删除中…' : '删除'}
+      </button>
+    )
+  }
+
   if (authLoading || listState === 'loading') {
     return <div className={styles.stateBlock}>正在加载用户列表…</div>
   }
@@ -184,6 +219,8 @@ export default function AdminUsers() {
         <h1 className={styles.title}>用户管理</h1>
         <span className={styles.countPill}>共 {users.length} 个账号</span>
       </div>
+
+      {actionError ? <p className={styles.errorText}>{actionError}</p> : null}
 
       <div className={styles.unlockCard}>
         {unlocked ? (
@@ -233,6 +270,7 @@ export default function AdminUsers() {
               <th>注册时间</th>
               <th>简历</th>
               <th>密码</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -248,6 +286,7 @@ export default function AdminUsers() {
                     onToggle={() => toggleReveal(u.user_id)}
                   />
                 </td>
+                <td>{actionCell(u)}</td>
               </tr>
             ))}
           </tbody>
@@ -272,6 +311,10 @@ export default function AdminUsers() {
                 revealed={revealedIds.has(u.user_id)}
                 onToggle={() => toggleReveal(u.user_id)}
               />
+            </div>
+            <div className={styles.cardRow}>
+              <span className={styles.cardLabel}>操作</span>
+              {actionCell(u)}
             </div>
           </div>
         ))}

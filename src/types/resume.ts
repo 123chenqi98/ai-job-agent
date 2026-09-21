@@ -173,6 +173,7 @@ export type AccountStatus =
   | { logged: false; ark_configured?: boolean }
   | {
       logged: true
+      user_id: string
       username: string
       has_resume: boolean
       resume: AccountResumeMeta | null

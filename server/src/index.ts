@@ -40,6 +40,7 @@ import {
   AccountError,
   clearResume,
   createAccount,
+  deleteAccount,
   findById,
   findByUsername,
   listAccounts,
@@ -163,6 +164,7 @@ app.get('/api/account/status', async (req, res) => {
   }
   res.json({
     logged: true,
+    user_id: account.user_id,
     username: account.username,
     has_resume: Boolean(account.resume),
     resume: account.resume,
@@ -319,6 +321,35 @@ app.post(
     res.json({
       users: accounts.map((a) => ({ ...publicUserView(a), password: a.password })),
     })
+  },
+)
+
+// 删除账号：仅站长可操作；禁止删除自己，删除时连带移除其简历 PDF，避免隐私残留
+app.delete(
+  '/api/admin/users/:userId',
+  requireUser(authSecret),
+  requireOwner,
+  async (req, res) => {
+    const targetId = typeof req.params.userId === 'string' ? req.params.userId : ''
+    if (!targetId) {
+      res.status(400).json({ error: 'invalid_target', msg: '未指定要删除的账号。' })
+      return
+    }
+    if (targetId === req.userId) {
+      res.status(400).json({
+        error: 'self_delete_forbidden',
+        msg: '不能删除当前正在使用的站长账号，请先切换到其他站长账号。',
+      })
+      return
+    }
+    const target = await findById(targetId)
+    if (!target) {
+      res.status(404).json({ error: 'not_found', msg: '该账号不存在或已被删除。' })
+      return
+    }
+    await deleteAccount(targetId)
+    await fs.rm(resumePathFor(targetId), { force: true }).catch(() => undefined)
+    res.json({ ok: true, deleted: target.username })
   },
 )
 
