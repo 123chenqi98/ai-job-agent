@@ -1,12 +1,10 @@
 import crypto from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
-import Database from 'better-sqlite3'
-import type { Database as SqliteDatabase } from 'better-sqlite3'
+import { DatabaseSync } from 'node:sqlite'
 
-// 账号存储：SQLite 单文件数据库（server/data/accounts.db）。
-// 单进程 Node 下用 better-sqlite3 同步 API + prepared statement；
-// WAL 模式提升读写并发，事务提交即落盘，崩溃不丢数据。
+// 账号存储：Node 内置 SQLite（node:sqlite，需 --experimental-sqlite）。
+// 单文件数据库 server/data/accounts.db，WAL 模式提升并发，事务提交即落盘。
 // 说明：按站长要求，password 与 recovery_code 均以明文直接存储。
 
 export interface ResumeMeta {
@@ -42,13 +40,13 @@ interface AccountRow {
 const DATA_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../data')
 const DB_PATH = path.join(DATA_DIR, 'accounts.db')
 
-let dbInstance: SqliteDatabase | null = null
+let dbInstance: DatabaseSync | null = null
 
-function db(): SqliteDatabase {
+function db(): DatabaseSync {
   if (dbInstance) return dbInstance
   mkdirSync(DATA_DIR, { recursive: true })
-  const database = new Database(DB_PATH)
-  database.pragma('journal_mode = WAL')
+  const database = new DatabaseSync(DB_PATH)
+  database.exec('PRAGMA journal_mode = WAL')
   database.exec(`
     CREATE TABLE IF NOT EXISTS accounts (
       user_id              TEXT PRIMARY KEY,
@@ -162,7 +160,7 @@ export async function setResume(userId: string, meta: ResumeMeta): Promise<void>
        WHERE user_id = ?`,
     )
     .run(meta.filename, meta.original_name, meta.size, meta.uploaded_at, userId)
-  if (info.changes === 0) throw new AccountError('account_missing', '账号不存在。')
+  if (Number(info.changes) === 0) throw new AccountError('account_missing', '账号不存在。')
 }
 
 export async function clearResume(userId: string): Promise<void> {
@@ -174,14 +172,14 @@ export async function clearResume(userId: string): Promise<void> {
        WHERE user_id = ?`,
     )
     .run(userId)
-  if (info.changes === 0) throw new AccountError('account_missing', '账号不存在。')
+  if (Number(info.changes) === 0) throw new AccountError('account_missing', '账号不存在。')
 }
 
 export async function resetPassword(userId: string, password: string): Promise<void> {
   const info = db()
     .prepare("UPDATE accounts SET password = ?, recovery_code = '' WHERE user_id = ?")
     .run(password, userId)
-  if (info.changes === 0) throw new AccountError('account_missing', '账号不存在。')
+  if (Number(info.changes) === 0) throw new AccountError('account_missing', '账号不存在。')
 }
 
 export class AccountError extends Error {
