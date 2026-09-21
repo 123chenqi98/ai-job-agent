@@ -152,6 +152,14 @@ export async function findById(userId: string): Promise<AccountRecord | null> {
   return row ? rowToRecord(row) : null
 }
 
+// 列出全部账号：仅站长管理接口使用，按注册时间升序，返回完整记录（含明文密码，由路由决定是否下发）
+export async function listAccounts(): Promise<AccountRecord[]> {
+  const rows = db()
+    .prepare('SELECT * FROM accounts ORDER BY created_at ASC')
+    .all() as unknown as AccountRow[]
+  return rows.map(rowToRecord)
+}
+
 export async function setResume(userId: string, meta: ResumeMeta): Promise<void> {
   const info = db()
     .prepare(

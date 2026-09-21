@@ -49,6 +49,7 @@ export function useAccount() {
     username: logged ? status.username : null,
     hasResume: logged ? status.has_resume : false,
     aiRemaining: logged ? status.ai_remaining : null,
+    isOwner: logged ? status.is_owner === true : false,
     refresh,
   }
 }

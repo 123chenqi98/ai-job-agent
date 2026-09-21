@@ -42,6 +42,7 @@ import {
   createAccount,
   findById,
   findByUsername,
+  listAccounts,
   resetPassword,
   setResume,
 } from './accounts/store.js'
@@ -166,6 +167,7 @@ app.get('/api/account/status', async (req, res) => {
     has_resume: Boolean(account.resume),
     resume: account.resume,
     ai_remaining: getAiRemaining(account.user_id),
+    is_owner: Boolean(config.auth.ownerUserId && account.user_id === config.auth.ownerUserId),
   })
 })
 
@@ -244,6 +246,81 @@ app.post('/api/account/recover', recoverIpLimit, async (req, res) => {
   setSessionCookie(req, res, authSecret, account.user_id)
   res.json({ ok: true, msg: '密码已重置，恢复码已失效。' })
 })
+
+// ---- 站长用户管理：仅 OWNER_USER_ID 指定的账号可访问 ----
+
+// 已登录但非站长一律返回 404，不暴露管理接口的存在（未登录由 requireUser 返回 401）
+function requireOwner(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+): void {
+  if (!config.auth.ownerUserId || req.userId !== config.auth.ownerUserId) {
+    res.status(404).json({ error: 'not_found', msg: '页面不存在。' })
+    return
+  }
+  next()
+}
+
+// 站长口令 = q1cheng 的登录密码；常量时间比对，避免计时侧信道
+function verifyOwnerPassword(input: string, stored: string): boolean {
+  const a = Buffer.from(input)
+  const b = Buffer.from(stored)
+  if (a.length !== b.length) return false
+  return crypto.timingSafeEqual(a, b)
+}
+
+// 口令尝试按 IP 严格限频：10 分钟 5 次，防止对站长密码在线爆破
+const adminRevealLimit = createIpRateLimit({ windowMs: 10 * 60 * 1000, max: 5 })
+
+function publicUserView(a: {
+  user_id: string
+  username: string
+  created_at: string
+  resume: { size: number } | null
+}) {
+  return {
+    user_id: a.user_id,
+    username: a.username,
+    created_at: a.created_at,
+    has_resume: Boolean(a.resume),
+    resume_size: a.resume?.size ?? null,
+  }
+}
+
+// 用户列表：不含任何密码
+app.get(
+  '/api/admin/users',
+  requireUser(authSecret),
+  requireOwner,
+  async (_req, res) => {
+    const accounts = await listAccounts()
+    res.json({ users: accounts.map(publicUserView) })
+  },
+)
+
+// 解锁密码：必须再次输入站长本人登录密码，通过后才下发各账号明文密码
+app.post(
+  '/api/admin/reveal',
+  requireUser(authSecret),
+  adminRevealLimit,
+  requireOwner,
+  async (req, res) => {
+    const password = typeof req.body?.password === 'string' ? req.body.password : ''
+    const owner = await findById(req.userId!)
+    if (!owner || !password || !verifyOwnerPassword(password, owner.password)) {
+      res.status(401).json({
+        error: 'bad_admin_password',
+        msg: '站长口令错误，请输入当前站长账号的登录密码。',
+      })
+      return
+    }
+    const accounts = await listAccounts()
+    res.json({
+      users: accounts.map((a) => ({ ...publicUserView(a), password: a.password })),
+    })
+  },
+)
 
 // ---- 简历上传：PDF、≤10MB；先落临时文件，校验 PDF 头 + 可解析后再 rename 覆盖 ----
 const resumeUpload = multer({

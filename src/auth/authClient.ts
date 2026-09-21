@@ -1,5 +1,7 @@
 import type {
   AccountStatus,
+  AdminUserItem,
+  AdminUserWithPassword,
   LoginResponse,
   RegisterResponse,
   ResumeUploadResponse,
@@ -34,6 +36,23 @@ async function postJson<T>(path: string, body: unknown): Promise<ApiResult<T>> {
     ok: false,
     status: res.status,
     msg: json?.msg ?? (res.status === 429 ? '操作过于频繁，请稍后再试。' : '请求失败，请重试。'),
+    retryAfter: typeof json?.retry_after === 'number' ? json.retry_after : undefined,
+  }
+}
+
+async function getJson<T>(path: string): Promise<ApiResult<T>> {
+  let res: Response
+  try {
+    res = await fetch(path)
+  } catch {
+    return { ok: false, status: 0, msg: '网络异常，请检查连接后重试。' }
+  }
+  const json = (await res.json().catch(() => null)) as ({ msg?: string; retry_after?: number } & Partial<T>) | null
+  if (res.ok && json) return { ok: true, ...(json as T) }
+  return {
+    ok: false,
+    status: res.status,
+    msg: json?.msg ?? (res.status === 404 ? '页面不存在。' : '请求失败，请重试。'),
     retryAfter: typeof json?.retry_after === 'number' ? json.retry_after : undefined,
   }
 }
@@ -81,6 +100,17 @@ export async function uploadResume(file: File): Promise<ApiResult<ResumeUploadRe
   const json = (await res.json().catch(() => null)) as ({ msg?: string } & Partial<ResumeUploadResponse>) | null
   if (res.ok && json) return json as ApiResult<ResumeUploadResponse>
   return { ok: false, status: res.status, msg: json?.msg ?? '上传失败，请重试。' }
+}
+
+// 站长用户管理：列表接口默认不含密码，密码仅在 reveal 口令通过后一次性下发
+export async function fetchAdminUsers(): Promise<ApiResult<{ users: AdminUserItem[] }>> {
+  return getJson<{ users: AdminUserItem[] }>('/api/admin/users')
+}
+
+export function revealAdminPasswords(
+  password: string,
+): Promise<ApiResult<{ users: AdminUserWithPassword[] }>> {
+  return postJson<{ users: AdminUserWithPassword[] }>('/api/admin/reveal', { password })
 }
 
 export async function deleteResume(): Promise<ApiResult<{ has_resume: boolean }>> {

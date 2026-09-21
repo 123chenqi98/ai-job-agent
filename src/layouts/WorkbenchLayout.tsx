@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { AuthProvider } from '@/auth/AuthProvider'
+import { AuthProvider, useAccount } from '@/auth/AuthProvider'
 import { WorkbenchDataProvider } from '@/state/WorkbenchStore'
 import styles from './WorkbenchLayout.module.css'
 
@@ -56,6 +56,15 @@ function IconResume() {
   )
 }
 
+function IconShield() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  )
+}
+
 // 侧边主导航：只放一级模块
 const NAV_ITEMS: Array<{ to: string; label: string; icon: () => ReactNode; end?: boolean }> = [
   { to: '/', label: '今日工作台', icon: IconHome, end: true },
@@ -74,10 +83,43 @@ function resolvePageTitle(pathname: string): string {
   if (pathname.startsWith('/evaluate')) return '单岗位评估'
   if (pathname.startsWith('/board')) return '投递看板'
   if (pathname.startsWith('/resume')) return '我的简历'
+  if (pathname.startsWith('/admin')) return '用户管理'
   return '今日工作台'
 }
 
 const APP_TITLE = 'AI 求职决策工作台'
+
+// 导航列表：作为 AuthProvider 的子节点读取账号态；「用户管理」仅站长可见（后端另有强校验）
+function NavLinks() {
+  const { isOwner } = useAccount()
+  const items: typeof NAV_ITEMS = isOwner
+    ? [...NAV_ITEMS, { to: '/admin/users', label: '用户管理', icon: IconShield }]
+    : NAV_ITEMS
+  return (
+    <>
+      {items.map((item) => {
+        const Icon = item.icon
+        return (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) =>
+              isActive
+                ? `${styles.navItem} ${styles.navItemActive}`
+                : styles.navItem
+            }
+          >
+            <span className={styles.navIcon}>
+              <Icon />
+            </span>
+            <span>{item.label}</span>
+          </NavLink>
+        )
+      })}
+    </>
+  )
+}
 
 export default function WorkbenchLayout() {
   const location = useLocation()
@@ -109,26 +151,7 @@ export default function WorkbenchLayout() {
           <span className={styles.brandName}>AI 求职工作台</span>
         </div>
         <nav className={styles.nav}>
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  isActive
-                    ? `${styles.navItem} ${styles.navItemActive}`
-                    : styles.navItem
-                }
-              >
-                <span className={styles.navIcon}>
-                  <Icon />
-                </span>
-                <span>{item.label}</span>
-              </NavLink>
-            )
-          })}
+          <NavLinks />
         </nav>
         <div className={styles.sidebarFooter}>
           <span>AI 分析 · 你来决策</span>

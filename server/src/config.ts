@@ -39,8 +39,10 @@ export const config = {
     baseUrl: normalizeBaseUrl(process.env.ARK_BASE_URL || 'ark.cn-beijing.volces.com'),
   },
   // 账号会话：AUTH_SECRET 用于对登录 Cookie（aj_session）做 HMAC 签名
+  // OWNER_USER_ID 指定站长账号：仅该 uid 可访问 /api/admin/*（留空则管理接口全部关闭）
   auth: {
     secret: process.env.AUTH_SECRET || '',
+    ownerUserId: process.env.OWNER_USER_ID || '',
   },
   port: Number(process.env.PORT || 8787),
 }

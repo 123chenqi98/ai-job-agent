@@ -177,7 +177,22 @@ export type AccountStatus =
       has_resume: boolean
       resume: AccountResumeMeta | null
       ai_remaining: number
+      is_owner?: boolean
     }
+
+// ---- 站长用户管理 ----
+
+export interface AdminUserItem {
+  user_id: string
+  username: string
+  created_at: string
+  has_resume: boolean
+  resume_size: number | null
+}
+
+export interface AdminUserWithPassword extends AdminUserItem {
+  password: string
+}
 
 export interface RegisterResponse {
   ok: true
