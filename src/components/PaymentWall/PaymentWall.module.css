@@ -152,6 +152,58 @@
   color: var(--color-danger);
 }
 
+/* ---- 选择后的预览确认 ---- */
+
+.confirmBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.preview {
+  max-width: 220px;
+  max-height: 220px;
+  object-fit: contain;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.previewName {
+  max-width: 100%;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.buttonRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.secondaryButton {
+  height: 40px;
+  padding: 0 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--color-bg);
+}
+
+.secondaryButton:disabled {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
 @media (max-width: 720px) {
   .body {
     flex-direction: column;
@@ -163,5 +215,23 @@
   .qr {
     width: 220px;
     height: 220px;
+  }
+
+  .confirmBox {
+    align-items: center;
+    width: 100%;
+  }
+
+  .previewName {
+    text-align: center;
+  }
+
+  .buttonRow {
+    width: 100%;
+  }
+
+  .buttonRow .primaryButton,
+  .buttonRow .secondaryButton {
+    flex: 1;
   }
 }

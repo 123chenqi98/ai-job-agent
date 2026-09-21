@@ -17,6 +17,9 @@ export default function PaymentWall({
   const [proof, setProof] = useState<PaymentProofState | null>(null)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
+  // 已选择但尚未确认提交的凭证：先预览，确认后才真正上传。
+  const [draft, setDraft] = useState<File | null>(null)
+  const [draftUrl, setDraftUrl] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function syncFromServer() {
@@ -40,24 +43,47 @@ export default function PaymentWall({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function handlePickFile(file: File | undefined) {
+  function clearDraft() {
+    if (draftUrl) URL.revokeObjectURL(draftUrl)
+    setDraft(null)
+    setDraftUrl(null)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  function handlePickFile(file: File | undefined) {
     if (!file || uploading) return
     setError('')
     if (!/^image\/(jpeg|png)$/.test(file.type)) {
       setError('仅支持 JPG / PNG 格式的付款截图。')
+      if (fileRef.current) fileRef.current.value = ''
       return
     }
     if (file.size > 5 * 1024 * 1024) {
       setError('截图不能超过 5MB。')
+      if (fileRef.current) fileRef.current.value = ''
       return
     }
+    if (draftUrl) URL.revokeObjectURL(draftUrl)
+    setDraft(file)
+    setDraftUrl(URL.createObjectURL(file))
+  }
+
+  function handleRepick() {
+    if (uploading) return
+    clearDraft()
+    fileRef.current?.click()
+  }
+
+  async function handleConfirm() {
+    if (!draft || uploading) return
+    setError('')
     setUploading(true)
-    const result = await uploadPaymentProof(file)
+    const result = await uploadPaymentProof(draft)
     setUploading(false)
     if (result.ok) {
+      clearDraft()
       setProof(result.proof)
       setGate('pending')
-      if (fileRef.current) fileRef.current.value = ''
       return
     }
     setError(result.msg)
@@ -122,17 +148,48 @@ export default function PaymentWall({
                 type="file"
                 accept="image/png,image/jpeg"
                 className={styles.fileInput}
-                onChange={(e) => void handlePickFile(e.target.files?.[0])}
+                onChange={(e) => handlePickFile(e.target.files?.[0])}
               />
-              <button
-                type="button"
-                className={styles.primaryButton}
-                disabled={uploading}
-                onClick={() => fileRef.current?.click()}
-              >
-                {uploading ? '上传中…' : '选择并上传付款截图'}
-              </button>
-              <p className={styles.muted}>支持 JPG / PNG，大小不超过 5MB。</p>
+              {draft && draftUrl ? (
+                <div className={styles.confirmBox}>
+                  <img
+                    className={styles.preview}
+                    src={draftUrl}
+                    alt="付款截图预览"
+                  />
+                  <p className={styles.previewName}>{draft.name}</p>
+                  <div className={styles.buttonRow}>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      disabled={uploading}
+                      onClick={handleRepick}
+                    >
+                      重新上传
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.primaryButton}
+                      disabled={uploading}
+                      onClick={() => void handleConfirm()}
+                    >
+                      {uploading ? '提交中…' : '确认提交'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    disabled={uploading}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    选择付款截图
+                  </button>
+                  <p className={styles.muted}>支持 JPG / PNG，大小不超过 5MB。</p>
+                </>
+              )}
             </div>
           )}
 
