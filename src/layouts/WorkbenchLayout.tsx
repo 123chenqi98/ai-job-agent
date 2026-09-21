@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAccount } from '@/auth/AuthProvider'
+import { logout } from '@/auth/authClient'
 import { WorkbenchDataProvider } from '@/state/WorkbenchStore'
 import styles from './WorkbenchLayout.module.css'
 
@@ -65,6 +66,16 @@ function IconShield() {
   )
 }
 
+function IconLogout() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+      <path d="M10 17l-5-5 5-5" />
+      <path d="M5 12h11" />
+    </svg>
+  )
+}
+
 // 侧边主导航：只放一级模块
 const NAV_ITEMS: Array<{ to: string; label: string; icon: () => ReactNode; end?: boolean }> = [
   { to: '/', label: '今日工作台', icon: IconHome, end: true },
@@ -121,10 +132,68 @@ function NavLinks() {
   )
 }
 
+// 登出：二次确认 -> 后端清会话 -> 刷新全局账号态 -> 回到首页
+function useLogout() {
+  const { refresh } = useAccount()
+  const navigate = useNavigate()
+  return async () => {
+    if (!window.confirm('确定退出当前账号吗？')) return
+    await logout()
+    await refresh()
+    navigate('/')
+  }
+}
+
+// 侧栏底部账号区：登录后显示用户名与退出入口；未登录保留品牌标语
+function SidebarAccount() {
+  const { logged, username } = useAccount()
+  const handleLogout = useLogout()
+
+  if (!logged) {
+    return (
+      <div className={styles.sidebarFooter}>
+        <span>AI 分析 · 你来决策</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.accountBox}>
+      <div className={styles.accountInfo}>
+        <span className={styles.accountAvatar}>{(username ?? '?').slice(0, 1).toUpperCase()}</span>
+        <span className={styles.accountName} title={username ?? ''}>
+          {username}
+        </span>
+      </div>
+      <button type="button" className={styles.logoutButton} onClick={() => void handleLogout()}>
+        <IconLogout />
+        <span>退出账号</span>
+      </button>
+    </div>
+  )
+}
+
+// 顶栏退出入口：仅窄屏显示（侧栏在窄屏收敛为横向导航，底部账号区会隐藏）
+function TopbarAccount() {
+  const { logged } = useAccount()
+  const handleLogout = useLogout()
+  if (!logged) return null
+  return (
+    <button
+      type="button"
+      className={styles.topbarLogout}
+      title="退出账号"
+      aria-label="退出账号"
+      onClick={() => void handleLogout()}
+    >
+      <IconLogout />
+    </button>
+  )
+}
+
 export default function WorkbenchLayout() {
   const location = useLocation()
   const pageTitle = resolvePageTitle(location.pathname)
-
   // 浏览器标签页标题随路由变化，刷新 / 分享链接时也能识别当前页面
   useEffect(() => {
     document.title = `${pageTitle} · ${APP_TITLE}`
@@ -153,21 +222,22 @@ export default function WorkbenchLayout() {
         <nav className={styles.nav}>
           <NavLinks />
         </nav>
-        <div className={styles.sidebarFooter}>
-          <span>AI 分析 · 你来决策</span>
-        </div>
+        <SidebarAccount />
       </aside>
 
       <div className={styles.main}>
         <header className={styles.topbar}>
           <span className={styles.topbarTitle}>{pageTitle}</span>
-          <span className={styles.envBadge}>
-            <span className={styles.envDot} />
-            {isFeishuConnected
-              ? '飞书多维表格 · 只读同步'
-              : isLocalResume
-                ? '个人简历 · 规则解析 + 豆包 AI'
-                : 'AI 求职决策工作台'}
+          <span className={styles.topbarRight}>
+            <span className={styles.envBadge}>
+              <span className={styles.envDot} />
+              {isFeishuConnected
+                ? '飞书多维表格 · 只读同步'
+                : isLocalResume
+                  ? '个人简历 · 规则解析 + 豆包 AI'
+                  : 'AI 求职决策工作台'}
+            </span>
+            <TopbarAccount />
           </span>
         </header>
         <section className={styles.content}>
