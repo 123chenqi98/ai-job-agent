@@ -149,6 +149,8 @@ build_frontend() {
 start_app() {
   cd "$APP_DIR"
   [[ -f "$TSX_ENTRY" ]] || die "未找到 $TSX_ENTRY，请先安装依赖"
+  # node:sqlite 为实验性内置模块，需启用开关；追加而非覆盖已有 NODE_OPTIONS
+  export NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--experimental-sqlite"
   if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
     log "重启后端进程 ……"
     pm2 restart "$PM2_NAME" --update-env
