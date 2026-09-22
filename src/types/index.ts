@@ -300,3 +300,36 @@ export interface JobDetailBundle {
   suggestion: ResumeSuggestion | null
   related_experiences: ExperienceItem[]
 }
+
+/* ---------- 用户私有投递记录（server/src/applications） ---------- */
+
+/** 用户投递记录状态（不同于飞书看板的 ApplicationStatus，无 todo/ready） */
+export type UserApplicationStatus =
+  | 'applied'
+  | 'written_test'
+  | 'interview'
+  | 'offer'
+  | 'rejected'
+
+/** 用户私有投递记录：按 user_id 隔离，每位用户只看到自己的 */
+export interface UserApplication {
+  id: string
+  user_id: string
+  company: string
+  job_title: string
+  job_url: string
+  status: UserApplicationStatus
+  note: string
+  applied_at: string
+  updated_at: string
+}
+
+export interface UserApplicationStats {
+  total: number
+  applied: number
+  written_test: number
+  interview: number
+  offer: number
+  rejected: number
+  recent: UserApplication[]
+}

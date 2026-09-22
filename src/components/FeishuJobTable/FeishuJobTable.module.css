@@ -222,6 +222,27 @@
   transform: none;
 }
 
+.btnTrack {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), filter var(--transition-fast);
+}
+
+.btnTrack:hover {
+  filter: brightness(1.05);
+}
+
 .actionSub {
   display: flex;
   align-items: center;

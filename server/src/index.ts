@@ -56,6 +56,16 @@ import {
 } from './accounts/store.js'
 import { generateRecoveryCode, normalizeRecoveryCode } from './accounts/password.js'
 import { checkAiQuota, getAiRemaining, recordAiUsage } from './accounts/aiQuota.js'
+import {
+  createApplication,
+  deleteApplication,
+  findApplicationById,
+  getApplicationStats,
+  listApplications,
+  updateApplication,
+  VALID_STATUSES,
+  type ApplicationStatus,
+} from './applications/store.js'
 
 const app = express()
 // 线上在 Nginx HTTPS 反代之后：信任首层代理以正确识别 req.secure / 客户端 IP（Cookie Secure 与限次依赖）
@@ -789,6 +799,89 @@ app.post('/api/resume/interview-prep', ...aiGuards, async (req, res) => {
     res.json({ engine: config.ark.model, generated_at: new Date().toISOString(), ai_remaining: remaining, prep })
   } catch (error) {
     sendAiError(res, error)
+  }
+})
+
+// ---- 用户私有投递记录（按 user_id 严格隔离）----
+app.get('/api/applications', requireUser(authSecret), async (req, res) => {
+  try {
+    const items = await listApplications(req.userId!)
+    res.json({ items })
+  } catch (error) {
+    res.status(500).json({ error: 'internal_error', msg: '读取投递记录失败。' })
+  }
+})
+
+app.get('/api/applications/stats', requireUser(authSecret), async (req, res) => {
+  try {
+    const stats = await getApplicationStats(req.userId!)
+    res.json(stats)
+  } catch (error) {
+    res.status(500).json({ error: 'internal_error', msg: '读取投递统计失败。' })
+  }
+})
+
+app.post('/api/applications', requireUser(authSecret), async (req, res) => {
+  const { company, job_title, job_url, status, note } = req.body ?? {}
+  if (!company || !String(company).trim() || !job_title || !String(job_title).trim()) {
+    res.status(400).json({ error: 'invalid_input', msg: '公司名称与岗位名称不能为空。' })
+    return
+  }
+  if (status && !VALID_STATUSES.includes(status)) {
+    res.status(400).json({ error: 'invalid_status', msg: '投递状态不合法。' })
+    return
+  }
+  try {
+    const record = await createApplication({
+      userId: req.userId!,
+      company: String(company),
+      job_title: String(job_title),
+      job_url: job_url ? String(job_url) : '',
+      status: (status as ApplicationStatus) ?? 'applied',
+      note: note ? String(note) : '',
+    })
+    res.status(201).json(record)
+  } catch (error) {
+    res.status(500).json({ error: 'internal_error', msg: '保存投递记录失败。' })
+  }
+})
+
+app.patch('/api/applications/:id', requireUser(authSecret), async (req, res) => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+  const input = req.body ?? {}
+  if (input.status && !VALID_STATUSES.includes(input.status)) {
+    res.status(400).json({ error: 'invalid_status', msg: '投递状态不合法。' })
+    return
+  }
+  try {
+    const updated = await updateApplication(id, req.userId!, {
+      company: input.company,
+      job_title: input.job_title,
+      job_url: input.job_url,
+      status: input.status as ApplicationStatus | undefined,
+      note: input.note,
+    })
+    if (!updated) {
+      res.status(404).json({ error: 'not_found', msg: '投递记录不存在。' })
+      return
+    }
+    res.json(updated)
+  } catch (error) {
+    res.status(500).json({ error: 'internal_error', msg: '更新投递记录失败。' })
+  }
+})
+
+app.delete('/api/applications/:id', requireUser(authSecret), async (req, res) => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id
+  try {
+    const ok = await deleteApplication(id, req.userId!)
+    if (!ok) {
+      res.status(404).json({ error: 'not_found', msg: '投递记录不存在。' })
+      return
+    }
+    res.json({ ok: true })
+  } catch (error) {
+    res.status(500).json({ error: 'internal_error', msg: '删除投递记录失败。' })
   }
 })
 

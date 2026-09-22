@@ -1,10 +1,12 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import SectionCard from '@/components/common/SectionCard'
-import StateView from '@/components/common/StateView'
 import { listEvalRecords, type EvalRecord } from '@/data/evaluationHistory'
-import { useBoardStore, useJobsStore } from '@/state/WorkbenchStore'
-import type { FeishuApplicationItem, FeishuJobItem } from '@/types/feishu'
+import { getApplicationStats } from '@/data/applications'
+import { useAccount } from '@/auth/AuthProvider'
+import { useJobsStore } from '@/state/WorkbenchStore'
+import type { FeishuJobItem } from '@/types/feishu'
+import type { UserApplication, UserApplicationStats } from '@/types'
 import styles from './Dashboard.module.css'
 
 // 今日工作台：不新增任何接口，数字全部派生自看板缓存、岗位池缓存与本机评估历史
@@ -136,7 +138,7 @@ function scoreTone(score: number): string {
 }
 
 interface FocusRow {
-  item: FeishuApplicationItem
+  item: UserApplication
   kind: 'interview' | 'follow'
 }
 
@@ -146,6 +148,7 @@ interface UrgentRow {
 }
 
 export default function Dashboard() {
+  const { logged } = useAccount()
   const {
     bootstrapStatus,
     bootstrapError,
@@ -154,39 +157,44 @@ export default function Dashboard() {
     ensureBootstrap,
     bootstrap,
   } = useJobsStore()
-  const { data: board, status: boardStatus, error: boardError, ensureLoaded, refresh } =
-    useBoardStore()
+  const [appStats, setAppStats] = useState<UserApplicationStats | null>(null)
 
-  // 首次进入工作台即预热两份缓存，之后切到岗位池 / 看板不再请求
+  // 首次进入工作台即预热岗位池缓存；投递统计从用户私有接口获取
   useEffect(() => {
     ensureBootstrap()
-    ensureLoaded()
-  }, [ensureBootstrap, ensureLoaded])
+  }, [ensureBootstrap])
+
+  useEffect(() => {
+    if (!logged) return
+    let active = true
+    getApplicationStats()
+      .then((stats) => {
+        if (active) setAppStats(stats)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [logged])
 
   // 评估历史仅在本机浏览器，每次进入页面时读取最新
   const recentEvals = useMemo<EvalRecord[]>(() => listEvalRecords().slice(0, EVAL_LIMIT), [])
 
-  const boardItems = board?.items ?? []
-  const interviewItems = useMemo(
-    () => boardItems.filter((item) => item.column === 'interview'),
-    [boardItems],
-  )
-  const followItems = useMemo(
-    () => boardItems.filter((item) => item.column === 'applied' || item.column === 'written_test'),
-    [boardItems],
-  )
-  const offerCount = useMemo(
-    () => boardItems.filter((item) => item.result === 'offer').length,
-    [boardItems],
-  )
+  const interviewCount = appStats?.interview ?? 0
+  const followCount = (appStats?.applied ?? 0) + (appStats?.written_test ?? 0)
+  const offerCount = appStats?.offer ?? 0
+  const totalCount = appStats?.total ?? 0
 
-  const focusRows = useMemo<FocusRow[]>(
-    () => [
-      ...interviewItems.map((item) => ({ item, kind: 'interview' as const })),
-      ...followItems.map((item) => ({ item, kind: 'follow' as const })),
-    ].slice(0, FOCUS_LIMIT),
-    [interviewItems, followItems],
-  )
+  const focusRows = useMemo<FocusRow[]>(() => {
+    const recent = appStats?.recent ?? []
+    return recent
+      .filter((item) => item.status === 'interview' || item.status === 'applied' || item.status === 'written_test')
+      .map((item) => ({
+        item,
+        kind: item.status === 'interview' ? ('interview' as const) : ('follow' as const),
+      }))
+      .slice(0, FOCUS_LIMIT)
+  }, [appStats])
 
   const urgentRows = useMemo<UrgentRow[]>(() => {
     const rows: UrgentRow[] = []
@@ -206,11 +214,11 @@ export default function Dashboard() {
   })
 
   const headline =
-    interviewItems.length > 0
-      ? `${interviewItems.length} 个岗位正在面试流程中，今天优先准备面试`
-      : followItems.length > 0
-        ? `${followItems.length} 个已投岗位在等回应，今天可以跟进一轮`
-        : boardItems.length > 0
+    interviewCount > 0
+      ? `${interviewCount} 个岗位正在面试流程中，今天优先准备面试`
+      : followCount > 0
+        ? `${followCount} 个已投岗位在等回应，今天可以跟进一轮`
+        : totalCount > 0
           ? '流程里的岗位都在推进中，去岗位池看看有没有新机会'
           : '从岗位池开始，走完「筛选 → 评估 → 投递 → 追踪」闭环'
 
@@ -218,7 +226,7 @@ export default function Dashboard() {
     {
       key: 'interview',
       label: '面试中',
-      value: interviewItems.length,
+      value: interviewCount,
       hint: '面试流程中的岗位',
       cardTone: styles.toneViolet,
       icon: <IconInterview />,
@@ -227,7 +235,7 @@ export default function Dashboard() {
     {
       key: 'follow',
       label: '跟进中',
-      value: followItems.length,
+      value: followCount,
       hint: '已投递 / 笔试，等待回应',
       cardTone: styles.tonePrimary,
       icon: <IconFollow />,
@@ -253,18 +261,7 @@ export default function Dashboard() {
     },
   ]
 
-  const initialLoading =
-    boardStatus === 'loading' && !board && bootstrapStatus === 'loading' && jobItems.length === 0
-
-  if (initialLoading) {
-    return (
-      <div className={styles.page}>
-        <StateView title="正在准备今日工作台…" description="正在同步岗位池与投递看板数据，请稍候。" />
-      </div>
-    )
-  }
-
-  const showStarter = boardItems.length === 0 && recentEvals.length === 0
+  const showStarter = totalCount === 0 && recentEvals.length === 0
 
   return (
     <div className={styles.page}>
@@ -287,18 +284,6 @@ export default function Dashboard() {
             <span>下方「27 届在招」与「临近截止」可能不完整，看板数据不受影响。原因：{bootstrapError}</span>
           </div>
           <button type="button" className={styles.dataWarnAction} onClick={() => void bootstrap()}>
-            重新同步
-          </button>
-        </div>
-      ) : null}
-
-      {boardStatus === 'error' && boardError ? (
-        <div className={styles.dataWarn} role="alert">
-          <div className={styles.dataWarnBody}>
-            <span className={styles.dataWarnTitle}>投递看板暂时没同步成功</span>
-            <span>下方面试 / 跟进 / Offer 统计可能显示为 0，岗位池数据不受影响。原因：{boardError}</span>
-          </div>
-          <button type="button" className={styles.dataWarnAction} onClick={() => void refresh()}>
             重新同步
           </button>
         </div>
@@ -346,7 +331,7 @@ export default function Dashboard() {
             ) : (
               <ul className={styles.focusList}>
                 {focusRows.map(({ item, kind }) => (
-                  <li key={item.record_id}>
+                  <li key={item.id}>
                     <Link to="/board" className={styles.focusRow}>
                       <span className={styles.focusMain}>
                         <span className={styles.focusName}>
@@ -357,10 +342,9 @@ export default function Dashboard() {
                       <span className={styles.focusMeta}>
                         <span className={kind === 'interview' ? styles.tagInterview : styles.tagFollow}>
                           {kind === 'interview'
-                            ? `面试${item.interview_at ? ` · ${formatMd(item.interview_at)}` : ''}`
+                            ? '面试中'
                             : `投递于 ${formatMd(item.applied_at) || '—'}`}
                         </span>
-                        {item.city ? <span className={styles.focusCity}>{item.city}</span> : null}
                       </span>
                     </Link>
                   </li>

@@ -1,147 +1,109 @@
-import { useEffect, useMemo, useRef } from 'react'
-import type { BoardColumnKey } from '@/types'
-import type { FeishuApplicationItem } from '@/types/feishu'
-import { BOARD_COLUMNS } from '@/constants'
-import FeishuBoard from '@/components/FeishuBoard'
-import type { FeishuBoardAccent, FeishuBoardGroup } from '@/components/FeishuBoard'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import ApplicationFormModal from '@/components/ApplicationFormModal'
 import StateView from '@/components/common/StateView'
-import { useBoardStore } from '@/state/WorkbenchStore'
+import { useAccount } from '@/auth/AuthProvider'
+import {
+  deleteApplication,
+  listApplications,
+  updateApplication,
+} from '@/data/applications'
+import type { UserApplication, UserApplicationStatus } from '@/types'
 import styles from './ApplicationBoard.module.css'
 
-/** 各进行中列的列头配色；「结束」列不单列，改由 Offer / 已回绝两个分组承担 */
-const COLUMN_ACCENT: Partial<Record<BoardColumnKey, FeishuBoardAccent>> = {
-  todo: 'neutral',
-  ready: 'neutral',
-  applied: 'primary',
-  written_test: 'warning',
-  interview: 'success',
-}
-
-interface InsightItem {
-  value: number
+const COLUMNS: Array<{
+  key: UserApplicationStatus
   label: string
-  hint: string
-  tone: string
-}
+  accent: 'primary' | 'warning' | 'success' | 'danger'
+}> = [
+  { key: 'applied', label: '已投递', accent: 'primary' },
+  { key: 'written_test', label: '笔试中', accent: 'warning' },
+  { key: 'interview', label: '面试中', accent: 'success' },
+  { key: 'offer', label: 'Offer', accent: 'success' },
+  { key: 'rejected', label: '已回绝', accent: 'danger' },
+]
 
-function formatSyncTime(iso: string): string {
+function formatDate(iso: string): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
+  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
 }
 
 export default function ApplicationBoard() {
-  const { status, error, data, refreshing, refreshError, ensureLoaded, refresh } = useBoardStore()
-  const pageRef = useRef<HTMLDivElement>(null)
-  const overviewRef = useRef<HTMLDivElement>(null)
+  const { logged } = useAccount()
+  const [items, setItems] = useState<UserApplication[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState<UserApplication | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
-  // 仅本会话首次进入看板时拉取；切换导航回来直接展示缓存，手动「刷新同步」才重新请求
-  useEffect(() => {
-    ensureLoaded()
-  }, [ensureLoaded])
-
-  // 实时测量信息总览高度并写入 CSS 变量，列头行据此吸顶在总览正下方；
-  // 窄屏（≤960px）洞察卡换行导致总览变高时也能自动跟随，不能写死像素。
-  // 必须随 status 重跑：冷加载时序为 idle(主树空数据) → loading(主树被全屏态替换、
-  // 旧总览脱离文档) → ready(主树以新节点重新挂载)；deps 为空会监听到旧节点的 0 尺寸
-  // 回调且永远观察不到新节点，导致变量停在 0px、列头错误地吸到页面顶部。
-  useEffect(() => {
-    const page = pageRef.current
-    const overview = overviewRef.current
-    if (!page || !overview) return
-    const update = () => {
-      const height = overview.offsetHeight
-      if (height > 0) page.style.setProperty('--overview-stuck-height', `${height}px`)
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await listApplications()
+      setItems(res.items)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '读取投递记录失败。')
+    } finally {
+      setLoading(false)
     }
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(overview)
-    return () => observer.disconnect()
-  }, [status])
+  }, [])
 
-  const items: FeishuApplicationItem[] = useMemo(() => data?.items ?? [], [data])
+  useEffect(() => {
+    if (logged) void load()
+  }, [logged, load])
 
-  // 进行中列保持与 BOARD_COLUMNS 一致；「结束」列按结果拆成 Offer / 已回绝两个独立分组
-  const groups: FeishuBoardGroup[] = useMemo(() => {
-    const activeGroups = BOARD_COLUMNS.filter((column) => column.key !== 'closed').map((column) => ({
-      column: column.key,
-      label: column.label,
-      accent: COLUMN_ACCENT[column.key] ?? 'neutral',
-      items: items.filter((item) => item.column === column.key),
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('确定删除这条投递记录吗？')) return
+    try {
+      await deleteApplication(id)
+      setItems((prev) => prev.filter((i) => i.id !== id))
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : '删除失败。')
+    }
+  }
+
+  const handleStatusChange = async (id: string, status: UserApplicationStatus) => {
+    try {
+      const updated = await updateApplication(id, { status })
+      setItems((prev) => prev.map((i) => (i.id === id ? updated : i)))
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : '更新状态失败。')
+    }
+  }
+
+  const grouped = useMemo(() => {
+    return COLUMNS.map((col) => ({
+      ...col,
+      items: items.filter((i) => i.status === col.key),
     }))
-    const closedItems = items.filter((item) => item.column === 'closed')
-    const offerItems = closedItems.filter((item) => item.result === 'offer')
-    // result 非 offer 的结束记录统一归入「已回绝」，保证任何结束态卡片都不丢失
-    const rejectedItems = closedItems.filter((item) => item.result !== 'offer')
-    return [
-      ...activeGroups,
-      { column: 'offer' as const, label: 'Offer', accent: 'success' as const, items: offerItems },
-      {
-        column: 'rejected' as const,
-        label: '已回绝',
-        accent: 'danger' as const,
-        items: rejectedItems,
-      },
-    ]
   }, [items])
 
-  // 三个运营洞察均由飞书真实状态实时派生
-  const insights: InsightItem[] = useMemo(() => {
-    const appliedPending = items.filter((i) => i.column === 'applied').length
-    const interviewing = items.filter((i) => i.column === 'interview').length
-    const offerCount = items.filter((i) => i.result === 'offer').length
-    return [
-      {
-        value: appliedPending,
-        label: '已投待跟进',
-        hint: '飞书状态为「已投递/待筛选」，等待筛选回应',
-        tone: styles.insightPrimary,
-      },
-      {
-        value: interviewing,
-        label: '面试中',
-        hint: '处于初面至终面、等通知阶段，需重点跟进',
-        tone: styles.insightWarning,
-      },
-      {
-        value: offerCount,
-        label: '已拿 Offer',
-        hint: '飞书状态为已拿 offer / 待入职 / 已入职',
-        tone: styles.insightSuccess,
-      },
-    ]
-  }, [items])
-
-  // 首次加载且没有缓存数据时才占全屏；手动刷新保留旧看板，只让按钮进入 loading 态
-  if (status === 'loading' && !data) {
+  if (!logged) {
     return (
       <div className={styles.page}>
-        <StateView title="正在同步飞书数据…" description="正在通过本地只读服务读取你的投递多维表格，请稍候。" />
+        <StateView title="请先登录" description="登录后即可查看和管理你自己的投递看板。" />
       </div>
     )
   }
 
-  if (status === 'error' && !data) {
+  if (loading) {
+    return (
+      <div className={styles.page}>
+        <StateView title="正在加载投递看板…" description="读取你的投递记录。" />
+      </div>
+    )
+  }
+
+  if (error) {
     return (
       <div className={styles.page}>
         <StateView
-          title="飞书数据同步失败"
-          description={
-            <>
-              {error}
-              <br />
-              排查顺序：① 本地只读服务已启动（npm run dev:all）；② 应用已加为该多维表协作者；③ 最新版本（含只读权限）已发布。
-            </>
-          }
+          title="加载失败"
+          description={error}
           actions={
-            <button type="button" className={styles.retryButton} onClick={() => ensureLoaded()}>
-              重新同步
+            <button type="button" className={styles.refreshButton} onClick={() => void load()}>
+              重试
             </button>
           }
         />
@@ -150,58 +112,119 @@ export default function ApplicationBoard() {
   }
 
   return (
-    <div className={styles.page} ref={pageRef}>
-      <div className={styles.overview} ref={overviewRef}>
-        <header className={styles.header}>
-          <div>
-            <h1 className={styles.title}>投递看板</h1>
-            <p className={styles.subtitle}>
-              共 {items.length} 条投递记录，按飞书表「状态」自动分列，Offer 与已回绝各自独立成列；记录与状态均在飞书中维护。
-            </p>
-          </div>
-          <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.refreshButton}
-              disabled={refreshing}
-              onClick={() => void refresh()}
-            >
-              {refreshing ? '同步中…' : '刷新同步'}
-            </button>
-            {data?.generated_at ? (
-              <span className={styles.syncMeta}>缓存数据 · 最近同步：{formatSyncTime(data.generated_at)}</span>
-            ) : null}
-            {refreshError ? <span className={styles.refreshError}>刷新失败：{refreshError}</span> : null}
-          </div>
-        </header>
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div>
+          <h1 className={styles.title}>投递看板</h1>
+          <p className={styles.subtitle}>
+            共 {items.length} 条投递记录，仅你本人可见；从岗位池点「加入投递」即可记录，在此跟踪进度。
+          </p>
+        </div>
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.refreshButton}
+            disabled={loading}
+            onClick={() => void load()}
+          >
+            {loading ? '加载中…' : '刷新'}
+          </button>
+        </div>
+      </header>
 
-        <section className={styles.insightRow}>
-          {insights.map((it) => (
-            <div key={it.label} className={styles.insightCard}>
-              <span className={`${styles.insightValue} ${it.tone}`}>{it.value}</span>
-              <div className={styles.insightText}>
-                <div className={styles.insightLabel}>{it.label}</div>
-                <div className={styles.insightHint}>{it.hint}</div>
-              </div>
-            </div>
-          ))}
-        </section>
-      </div>
+      {actionError ? (
+        <div className={styles.actionError} onClick={() => setActionError(null)}>
+          {actionError}（点击关闭）
+        </div>
+      ) : null}
 
       {items.length === 0 ? (
         <StateView
-          title="飞书表中暂无投递记录"
-          description="在飞书多维表格中新增投递行并填写「状态」后，点击右上角「刷新同步」即可出现在看板。"
+          title="还没有投递记录"
+          description="去「岗位池」找到心仪岗位，点「加入投递」即可记录并跟踪进度。"
         />
       ) : (
-        <FeishuBoard groups={groups} />
+        <div className={styles.board}>
+          {grouped.map((col) => (
+            <div key={col.key} className={`${styles.column} ${styles[`accent_${col.accent}`]}`}>
+              <div className={styles.columnHeader}>
+                <span className={styles.columnLabel}>{col.label}</span>
+                <span className={styles.columnCount}>{col.items.length}</span>
+              </div>
+              <div className={styles.columnBody}>
+                {col.items.map((item) => (
+                  <div key={item.id} className={styles.card}>
+                    <div className={styles.cardHead}>
+                      <span className={styles.cardCompany}>{item.company}</span>
+                      <select
+                        className={styles.cardStatus}
+                        value={item.status}
+                        onChange={(e) =>
+                          void handleStatusChange(item.id, e.target.value as UserApplicationStatus)
+                        }
+                        title="切换状态"
+                      >
+                        {COLUMNS.map((c) => (
+                          <option key={c.key} value={c.key}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className={styles.cardTitle}>{item.job_title}</div>
+                    {item.note ? <div className={styles.cardNote}>{item.note}</div> : null}
+                    <div className={styles.cardMeta}>
+                      <span>投递 {formatDate(item.applied_at)}</span>
+                      {item.job_url ? (
+                        <a
+                          className={styles.cardLink}
+                          href={item.job_url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          网申链接
+                        </a>
+                      ) : null}
+                    </div>
+                    <div className={styles.cardActions}>
+                      <button
+                        type="button"
+                        className={styles.cardEditBtn}
+                        onClick={() => setEditing(item)}
+                      >
+                        编辑
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.cardDeleteBtn}
+                        onClick={() => void handleDelete(item.id)}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       <p className={styles.note}>
-        数据来源：飞书多维表格《{data?.source}
-        {data?.table ? ` / ${data.table}` : ''}
-        》，经本地只读服务单向同步，工作台不向飞书写入任何内容；投递、改状态、写复盘请直接在飞书表中操作。工作台不执行自动投递。
+        投递记录按账号隔离存储在本地服务器 SQLite，仅你本人可见；工作台不执行自动投递，
+        「立即投递」仅打开官方网申页面。
       </p>
+
+      {editing ? (
+        <ApplicationFormModal
+          editing={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(record) => {
+            setItems((prev) => prev.map((i) => (i.id === record.id ? record : i)))
+            setEditing(null)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

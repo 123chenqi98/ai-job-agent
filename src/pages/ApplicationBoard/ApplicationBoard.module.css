@@ -4,27 +4,6 @@
   gap: 20px;
 }
 
-/* 顶部信息总览：看板记录较多、向下滚动时吸顶固定，标题/刷新与 3 张洞察卡常驻。
-   top 取负的滚动容器 padding-top：粘附线默认落在 .content 的 padding 内边缘（y=80），
-   会在顶栏与总览之间留出 24px 缝让看板透出；上移 24px 后吸顶正好贴到滚动可视区顶（y=56）。
-   初始未滚动时总览仍在正常位置（80），24px 呼吸间距保留。 */
-.overview {
-  position: sticky;
-  top: -24px;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  /* 仅横向用负外边距抵消内容区 24px 内边距，让吸顶底色横向铺满（内部横向 padding 再对齐回原位）。
-     竖向不能用负 margin：sticky 的 top:0 固定的是 margin box，竖向负 margin 会把可见层向下推，
-     吸顶时顶部反而露出缝隙，让下方看板卡片透出来。 */
-  margin: 0 -24px;
-  padding: 16px 24px 14px;
-  background: var(--color-bg);
-  border-bottom: 1px solid var(--color-border);
-  box-shadow: 0 6px 14px -12px rgba(16, 24, 40, 0.35);
-}
-
 .header {
   display: flex;
   align-items: flex-start;
@@ -44,9 +23,8 @@
 
 .headerActions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   flex-shrink: 0;
 }
 
@@ -72,102 +50,217 @@
   cursor: default;
 }
 
-.syncMeta {
-  font-size: 12px;
-  color: var(--color-text-disabled);
-}
-
-.refreshError {
-  font-size: 12px;
-  color: var(--color-danger);
-}
-
-.retryButton {
-  margin-top: 4px;
-  padding: 7px 14px;
+.actionError {
+  padding: 10px 14px;
   font-size: 13px;
-  color: var(--color-surface);
-  background: var(--color-primary);
-  border: none;
+  color: var(--color-danger);
+  background: var(--color-danger-light);
   border-radius: var(--radius-md);
   cursor: pointer;
 }
 
-/* 洞察条 */
-.insightRow {
+/* ---- 看板 5 列 ---- */
+.board {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
 }
 
-.insightCard {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
+.column {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
 }
 
-.insightValue {
-  font-size: 30px;
+.columnHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.columnLabel {
+  font-size: 13px;
   font-weight: 700;
-  line-height: 1;
+  color: var(--color-text);
 }
 
-.insightPrimary {
+.columnCount {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-muted);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.accent_primary .columnHeader {
+  border-bottom-color: var(--color-primary-border);
+}
+.accent_primary .columnLabel {
   color: var(--color-primary);
 }
 
-.insightWarning {
+.accent_warning .columnHeader {
+  border-bottom-color: var(--color-warning-border);
+}
+.accent_warning .columnLabel {
   color: var(--color-warning);
 }
 
-.insightNeutral {
-  color: var(--color-text-secondary);
+.accent_success .columnHeader {
+  border-bottom-color: var(--color-success-border);
 }
-
-.insightSuccess {
+.accent_success .columnLabel {
   color: var(--color-success);
 }
 
-.insightText {
+.accent_danger .columnHeader {
+  border-bottom-color: var(--color-danger-border);
+}
+.accent_danger .columnLabel {
+  color: var(--color-danger);
+}
+
+.columnBody {
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 10px;
 }
 
-.insightLabel {
-  font-size: 14px;
-  font-weight: 600;
+/* ---- 投递卡片 ---- */
+.card {
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.insightHint {
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cardCompany {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardStatus {
+  flex-shrink: 0;
+  padding: 3px 6px;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.cardTitle {
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.cardNote {
   font-size: 12px;
+  color: var(--color-text-secondary);
   line-height: 1.5;
+  padding: 6px 8px;
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
   color: var(--color-text-disabled);
+}
+
+.cardLink {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.cardLink:hover {
+  text-decoration: underline;
+}
+
+.cardActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.cardEditBtn,
+.cardDeleteBtn {
+  flex: 1;
+  padding: 5px 0;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.cardEditBtn {
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.cardEditBtn:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary-border);
+}
+
+.cardDeleteBtn {
+  color: var(--color-danger);
+  background: transparent;
+}
+
+.cardDeleteBtn:hover {
+  background: var(--color-danger-light);
 }
 
 .note {
   font-size: 12px;
-  line-height: 1.7;
   color: var(--color-text-disabled);
+  line-height: 1.6;
 }
 
 @media (max-width: 960px) {
-  .insightRow {
-    grid-template-columns: 1fr;
+  .board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* 与 WorkbenchLayout 窄屏内容区内边距 14px 保持一致 */
-@media (max-width: 720px) {
-  .overview {
-    top: -14px;
-    margin: 0 -14px;
-    padding: 12px 14px;
-    gap: 12px;
+@media (max-width: 560px) {
+  .board {
+    grid-template-columns: 1fr;
+  }
+  .header {
+    flex-direction: column;
   }
 }

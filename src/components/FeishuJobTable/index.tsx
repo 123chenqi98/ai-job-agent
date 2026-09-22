@@ -1,12 +1,15 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import ApplicationFormModal from '@/components/ApplicationFormModal'
 import Tag from '@/components/common/Tag'
 import { findEvalForJob } from '@/data/evaluationHistory'
 import type { FeishuJobItem } from '@/types/feishu'
+import type { UserApplication } from '@/types'
 import styles from './FeishuJobTable.module.css'
 
 interface FeishuJobTableProps {
   items: FeishuJobItem[]
+  onApplicationSaved?: (record: UserApplication) => void
 }
 
 type DeadlineTone = 'normal' | 'urgent' | 'expired' | 'rolling'
@@ -72,7 +75,8 @@ function ExternalIcon() {
   )
 }
 
-export default function FeishuJobTable({ items }: FeishuJobTableProps) {
+export default function FeishuJobTable({ items, onApplicationSaved }: FeishuJobTableProps) {
+  const [activeJob, setActiveJob] = useState<FeishuJobItem | null>(null)
   // 每行角标都需扫一遍本地评估历史，统一按列表数据记忆化，避免渲染期重复读 localStorage
   const evalByRow = useMemo(
     () => items.map((item) => findEvalForJob(item.company, item.job_title)),
@@ -158,6 +162,13 @@ export default function FeishuJobTable({ items }: FeishuJobTableProps) {
                         暂无投递链接
                       </span>
                     )}
+                    <button
+                      type="button"
+                      className={styles.btnTrack}
+                      onClick={() => setActiveJob(item)}
+                    >
+                      加入投递
+                    </button>
                     <div className={styles.actionSub}>
                       <Link
                         className={styles.btnEval}
@@ -183,6 +194,20 @@ export default function FeishuJobTable({ items }: FeishuJobTableProps) {
           })}
         </tbody>
       </table>
+      {activeJob ? (
+        <ApplicationFormModal
+          defaultValues={{
+            company: activeJob.company || '',
+            job_title: activeJob.job_title || '',
+            job_url: activeJob.apply_url || '',
+          }}
+          onClose={() => setActiveJob(null)}
+          onSaved={(record) => {
+            setActiveJob(null)
+            onApplicationSaved?.(record)
+          }}
+        />
+      ) : null}
     </div>
   )
 }
