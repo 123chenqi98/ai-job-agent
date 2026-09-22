@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ApplicationFormModal from '@/components/ApplicationFormModal'
+import { splitJobTitles } from '@/components/ApplicationFormModal/splitJobs'
 import Tag from '@/components/common/Tag'
 import { findEvalForJob } from '@/data/evaluationHistory'
 import type { FeishuJobItem } from '@/types/feishu'
@@ -201,6 +202,7 @@ export default function FeishuJobTable({ items, onApplicationSaved }: FeishuJobT
             job_title: activeJob.job_title || '',
             job_url: activeJob.apply_url || '',
           }}
+          jobOptions={splitJobTitles(activeJob.job_title || '')}
           onClose={() => setActiveJob(null)}
           onSaved={(record) => {
             setActiveJob(null)
