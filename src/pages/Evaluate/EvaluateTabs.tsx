@@ -29,6 +29,14 @@ export default function EvaluateTabs() {
       >
         历史评估
       </NavLink>
+      <NavLink
+        to="/evaluate/tailor"
+        className={({ isActive }) =>
+          isActive ? `${styles.tab} ${styles.tabActive}` : styles.tab
+        }
+      >
+        定向简历方案
+      </NavLink>
     </div>
   )
 }

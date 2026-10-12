@@ -6,6 +6,7 @@ import type {
   JdJobMeta,
   JdMatchResponse,
   ResumeResponse,
+  TailorPlanResponse,
 } from '@/types/resume'
 
 // 简历数据出口：规则画像在本机解析；AI 分析仅在用户点击时才经本地服务转发至火山方舟
@@ -105,6 +106,23 @@ export function buildInterviewPrep(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jd, job }),
+    },
+    signal,
+  )
+}
+
+export function tailorResume(
+  jd: string,
+  job: JdJobMeta | undefined,
+  note: string,
+  signal?: AbortSignal,
+): Promise<TailorPlanResponse> {
+  return requestJson<TailorPlanResponse>(
+    '/api/resume/tailor',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jd, job, note }),
     },
     signal,
   )

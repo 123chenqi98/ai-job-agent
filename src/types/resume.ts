@@ -164,6 +164,52 @@ export interface JdJobMeta {
   title?: string
 }
 
+// ---- 定向简历优化方案（四步）----
+
+export interface TailoredExperience {
+  period: string
+  org: string
+  title: string
+  bullets: string[]
+}
+
+export interface TailoredPlan {
+  job_analysis: {
+    key_requirements: string[]
+    keywords: string[]
+    candidate_profile: string
+    close_points: string[]
+    weak_expression: string[]
+  }
+  rewrite_strategy: {
+    data_driven_experiences: string[]
+    bullets_to_enhance: string[]
+    closed_loop: string[]
+    keywords_to_integrate: string[]
+    content_to_deemphasize: string[]
+  }
+  tailored_resume: {
+    positioning: string
+    education: string[]
+    internships: TailoredExperience[]
+    projects: TailoredExperience[]
+    skills: string[]
+    self_evaluation: string[]
+  }
+  suggestions: {
+    missing_evidence: string[]
+    quantify_targets: string[]
+    interview_focus: string[]
+  }
+}
+
+export interface TailorPlanResponse {
+  engine: string
+  generated_at: string
+  ai_remaining?: number
+  plan: TailoredPlan
+}
+
 // ---- 多用户账号 ----
 
 export interface AccountResumeMeta {

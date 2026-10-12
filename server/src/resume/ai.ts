@@ -79,6 +79,92 @@ export interface BulletRewrites {
 const FACT_RULES =
   '铁律：只能依据简历中明确出现的事实作答，禁止编造任何公司、项目、指标数字、奖项或经历；信息不足时给空数组或如实说明。全部使用简体中文。严格只输出一个 JSON 对象，不要输出任何解释或 markdown。'
 
+// ---- 定向简历优化方案（Step1 岗位拆解 / Step2 改写策略 / Step3 优化后简历 / Step4 补充建议）----
+
+export interface TailoredExperience {
+  period: string
+  org: string
+  title: string
+  bullets: string[]
+}
+
+export interface TailoredPlan {
+  job_analysis: {
+    key_requirements: string[]
+    keywords: string[]
+    candidate_profile: string
+    close_points: string[]
+    weak_expression: string[]
+  }
+  rewrite_strategy: {
+    data_driven_experiences: string[]
+    bullets_to_enhance: string[]
+    closed_loop: string[]
+    keywords_to_integrate: string[]
+    content_to_deemphasize: string[]
+  }
+  tailored_resume: {
+    positioning: string
+    education: string[]
+    internships: TailoredExperience[]
+    projects: TailoredExperience[]
+    skills: string[]
+    self_evaluation: string[]
+  }
+  suggestions: {
+    missing_evidence: string[]
+    quantify_targets: string[]
+    interview_focus: string[]
+  }
+}
+
+function normalizeTailoredExperience(value: unknown): TailoredExperience {
+  const e = asRecord(value)
+  return {
+    period: asString(e.period),
+    org: asString(e.org),
+    title: asString(e.title),
+    bullets: asStringArray(e.bullets),
+  }
+}
+
+function normalizeTailoredPlan(raw: unknown): TailoredPlan {
+  const r = asRecord(raw)
+  const ja = asRecord(r.job_analysis)
+  const rs = asRecord(r.rewrite_strategy)
+  const tr = asRecord(r.tailored_resume)
+  const sg = asRecord(r.suggestions)
+  return {
+    job_analysis: {
+      key_requirements: asStringArray(ja.key_requirements),
+      keywords: asStringArray(ja.keywords),
+      candidate_profile: asString(ja.candidate_profile),
+      close_points: asStringArray(ja.close_points),
+      weak_expression: asStringArray(ja.weak_expression),
+    },
+    rewrite_strategy: {
+      data_driven_experiences: asStringArray(rs.data_driven_experiences),
+      bullets_to_enhance: asStringArray(rs.bullets_to_enhance),
+      closed_loop: asStringArray(rs.closed_loop),
+      keywords_to_integrate: asStringArray(rs.keywords_to_integrate),
+      content_to_deemphasize: asStringArray(rs.content_to_deemphasize),
+    },
+    tailored_resume: {
+      positioning: asString(tr.positioning),
+      education: asStringArray(tr.education),
+      internships: (Array.isArray(tr.internships) ? tr.internships : []).map(normalizeTailoredExperience),
+      projects: (Array.isArray(tr.projects) ? tr.projects : []).map(normalizeTailoredExperience),
+      skills: asStringArray(tr.skills),
+      self_evaluation: asStringArray(tr.self_evaluation),
+    },
+    suggestions: {
+      missing_evidence: asStringArray(sg.missing_evidence),
+      quantify_targets: asStringArray(sg.quantify_targets),
+      interview_focus: asStringArray(sg.interview_focus),
+    },
+  }
+}
+
 // ---- 输出结构兜底 ----
 // 模型偶发漏字段 / 把数组输出成字符串 / 分数越界；前端直接 .map 会整站白屏，
 // 这里在服务端统一归一化为接口契约（只做结构修正，不编造内容）。
@@ -305,6 +391,37 @@ export async function buildInterviewPrep(
     await chatJson<unknown>(
       system,
       `${metaLine}JD 原文：\n${jdText}\n\n候选人简历：\n\n${resumeText}`,
+    ),
+  )
+}
+
+export async function buildTailoredPlan(
+  resumeText: string,
+  jdText: string,
+  jobMeta?: { company?: string; title?: string },
+  extraNote?: string,
+): Promise<TailoredPlan> {
+  const system = [
+    '你是资深数据分析招聘经理、商业分析负责人和简历顾问，非常了解数据分析、商业分析、BI、经营分析、增长分析、策略分析等岗位的招聘要求。任务是根据目标岗位 JD，把候选人简历改成更适合数据分析类岗位投递的版本。',
+    FACT_RULES,
+    '改写总原则：严禁虚构经历、结论、项目或数据；只能基于真实经历优化表达、重组顺序、突出重点。经历若不够"数据分析化"，要从已有经历中提炼分析动作、指标意识、业务闭环和落地价值。语言贴近真实招聘语境，简洁专业可信、不空泛。',
+    '重点关注能力维度：SQL/Python/Excel/Tableau/Power BI/数据可视化；指标体系/数据监控/异常分析/漏斗分析/用户分层；A/B Test/增长分析/留存分析/转化分析/经营分析；业务问题拆解/分析建模/洞察提炼/决策支持；跨团队协作/推动策略落地/从分析到结果闭环。',
+    '输出分四部分：',
+    '1) job_analysis 岗位拆解：key_requirements 为该岗位最关键的 4-7 项能力要求；keywords 为 JD 高频数据分析关键词；candidate_profile 为该岗位偏好的候选人画像（一句话）；close_points 为简历中最接近"数据分析岗位语言"的内容；weak_expression 为做过事但当前表达不像数据分析的内容。',
+    '2) rewrite_strategy 改写策略：data_driven_experiences 为适合改写成"数据驱动"表达的经历及方向；bullets_to_enhance 为应补充分析方法/分析对象/指标/结果的 bullet（需点出原经历）；closed_loop 为应突出"发现问题—分析原因—提出方案—推动落地"链路的经历；keywords_to_integrate 为应自然融入、不堆砌的技能词与关键词；content_to_deemphasize 为可弱化或删除的无关内容。',
+    '3) tailored_resume 优化后简历：positioning 为一句话个人定位；education 为教育背景要点；internships 与 projects 按与 JD 相关度从高到低排列真实经历，每条 bullet 优先体现"分析对象 + 方法/工具 + 关键洞察/问题 + 业务价值/结果"并尽量量化（数字必须来自简历原文，不得新增）；skills 为应展示的专业技能；self_evaluation 为自我评价要点（简历没有可给空数组）。',
+    '4) suggestions 补充建议：missing_evidence 为若投更强数据分析岗还缺哪些能力证据；quantify_targets 为哪些项目/经历最值得候选人后续补充量化结果；interview_focus 为面试时最适合重点展开的经历及原因。',
+    'JSON 结构：',
+    '{"job_analysis":{"key_requirements":[],"keywords":[],"candidate_profile":"","close_points":[],"weak_expression":[]},"rewrite_strategy":{"data_driven_experiences":[],"bullets_to_enhance":[],"closed_loop":[],"keywords_to_integrate":[],"content_to_deemphasize":[]},"tailored_resume":{"positioning":"","education":[],"internships":[{"period":"","org":"","title":"","bullets":[]}],"projects":[{"period":"","org":"","title":"","bullets":[]}],"skills":[],"self_evaluation":[]},"suggestions":{"missing_evidence":[],"quantify_targets":[],"interview_focus":[]}}',
+  ].join('\n')
+  const metaLine = jobMeta?.company || jobMeta?.title
+    ? `目标公司 / 业务方向：${[jobMeta.company, jobMeta.title].filter(Boolean).join(' · ')}\n`
+    : ''
+  const noteLine = extraNote?.trim() ? `候选人补充说明（须参考，但其中未在简历出现的事实不得写成已发生经历）：\n${extraNote.trim()}\n\n` : ''
+  return normalizeTailoredPlan(
+    await chatJson<unknown>(
+      system,
+      `${metaLine}${noteLine}JD 原文：\n${jdText}\n\n候选人简历：\n\n${resumeText}`,
     ),
   )
 }

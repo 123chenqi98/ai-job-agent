@@ -24,7 +24,13 @@ import {
 } from './jobs/mapper.js'
 import { parseResumePdf } from './resume/pdf.js'
 import { extractRuleProfile } from './resume/profile.js'
-import { buildAiProfile, buildInterviewPrep, matchJd, rewriteBullets } from './resume/ai.js'
+import {
+  buildAiProfile,
+  buildInterviewPrep,
+  buildTailoredPlan,
+  matchJd,
+  rewriteBullets,
+} from './resume/ai.js'
 import { isArkConfigured, LlmApiError } from './llm/ark.js'
 import { createIpRateLimit } from './rateLimit.js'
 import {
@@ -797,6 +803,28 @@ app.post('/api/resume/interview-prep', ...aiGuards, async (req, res) => {
     const prep = await buildInterviewPrep(parsed.fullText, jd.slice(0, 6000), pickJobMeta(req.body))
     const remaining = recordAiUsage(req.userId!)
     res.json({ engine: config.ark.model, generated_at: new Date().toISOString(), ai_remaining: remaining, prep })
+  } catch (error) {
+    sendAiError(res, error)
+  }
+})
+
+// 定向简历优化方案：JD + 简历 + 可选补充说明，输出岗位拆解/改写策略/优化后简历/补充建议
+app.post('/api/resume/tailor', ...aiGuards, async (req, res) => {
+  if (!isArkConfigured()) {
+    arkNotConfigured(res)
+    return
+  }
+  const jd = typeof req.body?.jd === 'string' ? req.body.jd.trim() : ''
+  if (jd.length < 30) {
+    res.status(400).json({ error: 'invalid_jd', msg: '请粘贴完整 JD（至少 30 字）后再生成定向简历方案。' })
+    return
+  }
+  const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 1000) : ''
+  try {
+    const { parsed } = await parseResumePdf(resumePathFor(req.userId!))
+    const plan = await buildTailoredPlan(parsed.fullText, jd.slice(0, 6000), pickJobMeta(req.body), note)
+    const remaining = recordAiUsage(req.userId!)
+    res.json({ engine: config.ark.model, generated_at: new Date().toISOString(), ai_remaining: remaining, plan })
   } catch (error) {
     sendAiError(res, error)
   }

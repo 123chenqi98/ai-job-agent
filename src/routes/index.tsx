@@ -8,6 +8,7 @@ import MyResume from '@/pages/MyResume'
 import Evaluate from '@/pages/Evaluate'
 import BatchEvaluate from '@/pages/Evaluate/BatchEvaluate'
 import HistoryPage from '@/pages/Evaluate/HistoryPage'
+import TailorPlan from '@/pages/Evaluate/TailorPlan'
 import AdminUsers from '@/pages/AdminUsers'
 
 function NotFound() {
@@ -35,6 +36,7 @@ export default function AppRoutes() {
         <Route path="/evaluate" element={<Evaluate />} />
         <Route path="/evaluate/batch" element={<BatchEvaluate />} />
         <Route path="/evaluate/history" element={<HistoryPage />} />
+        <Route path="/evaluate/tailor" element={<TailorPlan />} />
         <Route path="/resume" element={<MyResume />} />
         <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="*" element={<NotFound />} />
