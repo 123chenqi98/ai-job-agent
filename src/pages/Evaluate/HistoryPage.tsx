@@ -100,8 +100,8 @@ export default function HistoryPage() {
             <button type="button" className={styles.deepMissButton} onClick={dismissDeepMiss}>
               知道了
             </button>
-            <Link to="/evaluate" className={`${styles.deepMissButton} ${styles.deepMissPrimary}`}>
-              去评估一个岗位
+            <Link to="/evaluate/batch" className={`${styles.deepMissButton} ${styles.deepMissPrimary}`}>
+              去批量评估
             </Link>
           </div>
         </div>
@@ -113,12 +113,12 @@ export default function HistoryPage() {
             title="还没有评估历史"
             description={
               <>
-                在「单岗位评估」粘贴 JD 生成报告，或在「批量评估与排名」一次评估多个岗位后，结果会自动保存在这里。
+                在「批量评估与排名」一次粘贴多个岗位 JD 生成报告后，结果会自动保存在这里。
               </>
             }
             actions={
-              <Link to="/evaluate" className={styles.primaryButton}>
-                去评估一个岗位
+              <Link to="/evaluate/batch" className={styles.primaryButton}>
+                去批量评估
               </Link>
             }
           />

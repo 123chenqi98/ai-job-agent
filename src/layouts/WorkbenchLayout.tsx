@@ -80,7 +80,7 @@ function IconLogout() {
 const NAV_ITEMS: Array<{ to: string; label: string; icon: () => ReactNode; end?: boolean }> = [
   { to: '/', label: '今日工作台', icon: IconHome, end: true },
   { to: '/jobs', label: '岗位池', icon: IconBriefcase },
-  { to: '/evaluate', label: '岗位评估', icon: IconClipboardCheck },
+  { to: '/evaluate', label: '简历优化', icon: IconClipboardCheck },
   { to: '/board', label: '投递看板', icon: IconKanban },
   { to: '/resume', label: '我的简历', icon: IconResume },
 ]
@@ -91,7 +91,8 @@ function resolvePageTitle(pathname: string): string {
   if (pathname === '/jobs') return '岗位池'
   if (pathname.startsWith('/evaluate/batch')) return '批量评估与排名'
   if (pathname.startsWith('/evaluate/history')) return '评估历史'
-  if (pathname.startsWith('/evaluate')) return '单岗位评估'
+  if (pathname.startsWith('/evaluate/tailor')) return '定向简历方案'
+  if (pathname.startsWith('/evaluate')) return '简历优化'
   if (pathname.startsWith('/board')) return '投递看板'
   if (pathname.startsWith('/resume')) return '我的简历'
   if (pathname.startsWith('/admin')) return '用户管理'

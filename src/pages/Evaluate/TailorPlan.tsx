@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import SectionCard from '@/components/common/SectionCard'
 import PaymentWall from '@/components/PaymentWall'
 import { useAccount } from '@/auth/AuthProvider'
@@ -335,9 +335,12 @@ function PlanReport({ result }: { result: StoredResult }) {
 export default function TailorPlan() {
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [configError, setConfigError] = useState<string | null>(null)
+  const [searchParams] = useSearchParams()
+  const queryCompany = searchParams.get('company')?.trim() || ''
+  const queryTitle = searchParams.get('title')?.trim() || ''
   const initialDraft = loadDraft()
-  const [company, setCompany] = useState(initialDraft.company ?? '')
-  const [title, setTitle] = useState(initialDraft.title ?? '')
+  const [company, setCompany] = useState(queryCompany || initialDraft.company || '')
+  const [title, setTitle] = useState(queryTitle || initialDraft.title || '')
   const [jd, setJd] = useState(initialDraft.jd ?? '')
   const [note, setNote] = useState(initialDraft.note ?? '')
   const [result, setResult] = useState<StoredResult | null>(() => loadResult())
@@ -358,6 +361,12 @@ export default function TailorPlan() {
       // 静默降级
     }
   }, [company, title, jd, note])
+
+  // 从岗位池「优化简历」带公司/岗位参数跳入时同步预填（连续切换不同岗位也能更新）
+  useEffect(() => {
+    if (queryCompany) setCompany(queryCompany)
+    if (queryTitle) setTitle(queryTitle)
+  }, [queryCompany, queryTitle])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -527,13 +536,6 @@ export default function TailorPlan() {
               <li>Step 3 优化后简历：按相关度重排的实习 / 项目与整份可投递文案，支持一键复制</li>
               <li>Step 4 补充建议：还缺的能力证据、值得补量化结果的项目、面试重点展开的经历</li>
             </ul>
-            <p className={shared.emptyFootnote}>
-              需要先做投递可行性判断，可先使用
-              <Link to="/evaluate" className={shared.inlineLink}>
-                单岗位评估
-              </Link>
-              。
-            </p>
           </div>
         </SectionCard>
       )}

@@ -5,13 +5,12 @@ export default function EvaluateTabs() {
   return (
     <div className={styles.tabs}>
       <NavLink
-        to="/evaluate"
-        end
+        to="/evaluate/tailor"
         className={({ isActive }) =>
           isActive ? `${styles.tab} ${styles.tabActive}` : styles.tab
         }
       >
-        单岗位评估
+        定向简历方案
       </NavLink>
       <NavLink
         to="/evaluate/batch"
@@ -28,14 +27,6 @@ export default function EvaluateTabs() {
         }
       >
         历史评估
-      </NavLink>
-      <NavLink
-        to="/evaluate/tailor"
-        className={({ isActive }) =>
-          isActive ? `${styles.tab} ${styles.tabActive}` : styles.tab
-        }
-      >
-        定向简历方案
       </NavLink>
     </div>
   )

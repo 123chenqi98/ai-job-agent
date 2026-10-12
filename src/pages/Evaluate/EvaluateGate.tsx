@@ -22,16 +22,16 @@ export default function AccessNotice({ onClose }: { onClose?: () => void }) {
     <div className={styles.gateNotice}>
       {!logged ? (
         <>
-          <h3 className={styles.gateTitle}>登录后即可使用 AI 岗位评估</h3>
+          <h3 className={styles.gateTitle}>登录后即可使用 AI 简历优化与岗位评估</h3>
           <p className={styles.gateText}>
-            AI 会基于<strong>你本人</strong>的简历做硬门槛核对与匹配评分。每人独立账号，简历互不可见；注册只需 30 秒。
+            AI 会基于<strong>你本人</strong>的简历生成定向优化方案、做硬门槛核对与匹配评分。每人独立账号，简历互不可见；注册只需 30 秒。
           </p>
         </>
       ) : (
         <>
-          <h3 className={styles.gateTitle}>先上传简历，才能开始评估</h3>
+          <h3 className={styles.gateTitle}>先上传简历，才能开始优化与评估</h3>
           <p className={styles.gateText}>
-            尚未检测到你的简历 PDF。上传后 AI 即可对照你的真实背景输出评分、证据与缺口；文件仅你本人可见。
+            尚未检测到你的简历 PDF。上传后 AI 即可对照你的真实背景输出定向简历、评分、证据与缺口；文件仅你本人可见。
           </p>
         </>
       )}

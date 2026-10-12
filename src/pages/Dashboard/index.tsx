@@ -411,8 +411,8 @@ export default function Dashboard() {
           >
             {recentEvals.length === 0 ? (
               <div className={styles.evalEmpty}>
-                <span>还没有评估记录，贴一段 JD 就能出投递报告。</span>
-                <Link to="/evaluate" className={styles.evalCta}>去评估一个岗位</Link>
+                <span>还没有评估记录，在批量评估里贴一段 JD 就能出投递报告。</span>
+                <Link to="/evaluate/batch" className={styles.evalCta}>去评估岗位</Link>
               </div>
             ) : (
               <ul className={styles.evalList}>
@@ -446,9 +446,9 @@ export default function Dashboard() {
                 <span className={styles.quickIcon}><IconPool /></span>
                 <span>逛岗位池</span>
               </Link>
-              <Link to="/evaluate" className={`${styles.quickItem} ${styles.qiViolet}`}>
+              <Link to="/evaluate/tailor" className={`${styles.quickItem} ${styles.qiViolet}`}>
                 <span className={styles.quickIcon}><IconEval /></span>
-                <span>评估岗位</span>
+                <span>优化简历</span>
               </Link>
               <Link to="/board" className={`${styles.quickItem} ${styles.qiTeal}`}>
                 <span className={styles.quickIcon}><IconBoard /></span>

@@ -173,9 +173,9 @@ export default function FeishuJobTable({ items, onApplicationSaved }: FeishuJobT
                     <div className={styles.actionSub}>
                       <Link
                         className={styles.btnEval}
-                        to={`/evaluate?company=${encodeURIComponent(item.company || '')}&title=${encodeURIComponent(item.job_title || '')}`}
+                        to={`/evaluate/tailor?company=${encodeURIComponent(item.company || '')}&title=${encodeURIComponent(item.job_title || '')}`}
                       >
-                        评估
+                        优化简历
                       </Link>
                       {item.announcement_url ? (
                         <a
