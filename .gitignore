@@ -4,6 +4,8 @@ dist-ssr
 *.local
 .env
 server/.env
+# 环境变量备份（可能含密钥），禁止入库
+*.env.bak.*
 # 本地简历文件含个人隐私，仅在本机解析，禁止入库
 server/data/
 .DS_Store
