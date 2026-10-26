@@ -28,7 +28,12 @@ export interface JobQuery {
   nature?: string
   recruitType?: string
   bigTech?: boolean
+  // 仅保留 N 天内截止（含今天）的岗位；undefined/0 表示不按截止时间过滤
+  deadlineWithin?: number
 }
+
+// 网申截止快捷窗口（天），同时作为接口白名单与 meta 下发口径
+export const DEADLINE_WINDOW_OPTIONS = [3, 7, 15, 30] as const
 
 // 企业性质快捷分组：原表实际数据里「外企 / 外企/合资 / 合资」与「事业单位 / 社会机构 / 社会组织」
 // 语义同源，按组合并为一个筛选项。飞书多选字段 contains 传多值是 any-of 语义，可直接一条条件直筛。
@@ -149,3 +154,156 @@ export function buildJobFilter(query: JobQuery): unknown {
 
 // 默认按「网申更新」倒序
 export const JOB_SORT = [{ field_name: '网申更新', desc: true }]
+
+// ---- 网申截止窗口过滤 ----
+// 飞书「网申截止」是手填文本字段：77% 为「招满即止」，约 21% 为 YYYY/M/D，
+// 另有双斜杠、中文年月日、年月粘连、月日连写等手误。无法精确到日的（招满即止、
+// 尽快投递、6月底、6月上旬、无年份的 6月18日 等）一律视为无确定日期，不纳入窗口。
+
+const DAY_MS = 86_400_000
+const ROLLING_DEADLINE_RE = /招满|滚动|长期|常年|尽快|额满|持续招聘/
+
+// 以 UTC 日序号表达日期，规避服务器时区差异（北京日历日 = UTC+8）
+function toDayNumber(year: number, month: number, day: number): number | null {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null
+  const date = new Date(Date.UTC(year, month - 1, day))
+  // 拒绝 2026/2/31 这类溢出日期
+  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null
+  return Math.floor(date.getTime() / DAY_MS)
+}
+
+// 把「网申截止」原文解析为 UTC 日序号；解析不出确定日期返回 null
+export function parseDeadlineDay(raw: string | null | undefined): number | null {
+  if (!raw) return null
+  const text = String(raw).trim()
+  if (!text || ROLLING_DEADLINE_RE.test(text)) return null
+
+  // 收集全部可能的 (年,月,日) 候选，逐个做真实日期校验，首个合法者生效
+  const candidates: Array<[number, number, number]> = []
+
+  // a) 年月日齐全：2026/10/28、2026-10-28、2026年10月28日、2026/10//31（双斜杠手误）
+  const full = text.match(/(\d{4})\s*[年/\-.,]+\s*(\d{1,2})\s*[月/\-.,]*\s*(\d{1,2})/)
+  if (full) candidates.push([Number(full[1]), Number(full[2]), Number(full[3])])
+
+  // b) 年份与月份粘连：202612/25、202610/9
+  const gluedYear = text.match(/(\d{4})(\d{2})\s*[/\-.,]\s*(\d{1,2})/)
+  if (gluedYear) candidates.push([Number(gluedYear[1]), Number(gluedYear[2]), Number(gluedYear[3])])
+
+  // c) 月份与日期连写：2026/1119 → 11 月 19 日（前两位不是合法月份时按 1 位月份拆）
+  const gluedMd = text.match(/(\d{4})\s*[/\-.,]\s*(\d{4})\s*日?\s*$/)
+  if (gluedMd) {
+    const year = Number(gluedMd[1])
+    const md = gluedMd[2]
+    const twoDigitMonth = Number(md.slice(0, 2))
+    if (twoDigitMonth >= 1 && twoDigitMonth <= 12) {
+      candidates.push([year, twoDigitMonth, Number(md.slice(2))])
+    } else {
+      candidates.push([year, Number(md.slice(0, 1)), Number(md.slice(1))])
+    }
+  }
+
+  for (const [year, month, day] of candidates) {
+    // 过滤明显的历史/未来脏数据（表为 26-27 届秋招，合理年份 2025-2028）
+    if (year < 2025 || year > 2028) continue
+    const dayNumber = toDayNumber(year, month, day)
+    if (dayNumber !== null) return dayNumber
+  }
+  return null
+}
+
+// 北京日历日（UTC+8）对应的 UTC 日序号——窗口锚点，全链路统一使用
+export function beijingTodayDay(now: number = Date.now()): number {
+  return Math.floor((now + 8 * 3_600_000) / DAY_MS)
+}
+
+// 是否落在「今天起 N 天内（含今天、含第 N 天）」；已截止或无确定日期均不命中
+export function isWithinDeadline(
+  deadlineDay: number | null,
+  withinDays: number,
+  todayDay: number = beijingTodayDay(),
+): boolean {
+  if (deadlineDay === null) return false
+  const diff = deadlineDay - todayDay
+  return diff >= 0 && diff <= withinDays
+}
+
+// 截止窗口内的结果按截止日升序（最紧急在前）；同截止日保持原顺序稳定
+export function sortJobsByDeadlineAsc(items: FeishuJobItem[]): FeishuJobItem[] {
+  return [...items]
+    .map((item, index) => ({ item, index, day: parseDeadlineDay(item.deadline) }))
+    .sort((a, b) => {
+      if (a.day === null && b.day === null) return a.index - b.index
+      if (a.day === null) return 1
+      if (b.day === null) return -1
+      if (a.day !== b.day) return a.day - b.day
+      return a.index - b.index
+    })
+    .map((entry) => entry.item)
+}
+
+// 截止模式的飞书候选预过滤。「网申截止」是文本字段：contains 仅接受单值，
+// 且 filter 不支持 AND 套 OR，无法把「facets AND (月份词1 OR 月份词2)」一次下推。
+// 故截止模式单独发 OR(月份词) 请求，把候选从全表 1.1w+ 收敛到窗口覆盖月份的约 1k 条
+// （3 页内）；facet/关键词与精确窗口改在内存按同一口径判定，预过滤只负责缩小候选。
+//
+// 词模式按全表普查（11128 条/2464 条含可解析日期）做过完备性校验：只要原文能被
+// parseDeadlineDay 解析出窗口内日期，就必须至少命中一个词，否则该岗位会在候选层漏掉。
+// 短横线/逗号日期在全表为 0 条，故不下推对应词（解析器仍兼容，未来出现时仅候选层漏召回）。
+export function buildDeadlinePrefilter(
+  withinDays: number,
+  now: number = Date.now(),
+): {
+  conjunction: 'or'
+  conditions: Array<{ field_name: string; operator: 'contains'; value: string[] }>
+} {
+  const todayDay = beijingTodayDay(now)
+  const words = new Set<string>()
+  for (let offset = 0; offset <= withinDays; offset++) {
+    const date = new Date((todayDay + offset) * DAY_MS)
+    const year = date.getUTCFullYear()
+    const month = date.getUTCMonth() + 1
+    words.add(`${year}/${month}`) // 2026/10/28、2026/10//31（双斜杠手误）、2026/1119（月日连写）
+    words.add(`${year}.${month}`) // 2026.10.31（点分日期，实测窗口内存在，斜杠词无法覆盖）
+    words.add(`${year}年${month}`) // 2026年11月30日；不带「月」字，兼容「2026年11.30」类手误
+    words.add(`/${month}/`) // 2026年/10/31（年与月之间多斜杠，年月前缀词均不命中）
+    if (month >= 10) words.add(`${year}${month}`) // 202610/9（年月粘连，仅两位月份可能出现）
+  }
+  return {
+    conjunction: 'or',
+    conditions: [...words].map((word) => ({
+      field_name: '网申截止',
+      operator: 'contains',
+      value: [word],
+    })),
+  }
+}
+
+// 与 buildJobFilter 完全等价的内存谓词：截止预过滤请求已被月份 OR 组占用，
+// 其余 facet / 关键词不能再下推飞书，统一在候选集上按同一口径过滤，避免两端口径漂移。
+export function jobRecordMatchesQuery(record: BitableRecord, query: JobQuery): boolean {
+  const f = record.fields
+  const keyword = query.keyword?.trim() ?? ''
+  const target = query.target?.trim() ?? ''
+  const degree = query.degree?.trim() ?? ''
+  const city = query.city?.trim() ?? ''
+  const recruitType = query.recruitType?.trim() ?? ''
+
+  // 单选用 is（选项精确相等），多选用 contains（包含该选项）；内存侧统一为「选项数组包含」
+  if (target && !toOptions(f['招聘对象']).includes(target)) return false
+  if (degree && !toOptions(f['学历']).includes(degree)) return false
+  if (city && !toOptions(f['工作地点']).includes(city)) return false
+  if (query.nature) {
+    const group = NATURE_GROUPS[query.nature]
+    if (group && !toOptions(f['企业性质']).some((option) => group.includes(option))) return false
+  }
+  if (recruitType && !toOptions(f['招聘类型']).includes(recruitType)) return false
+
+  if (keyword) {
+    // 与 buildJobFilter 一致：存在任一结构化 facet 时关键词只匹配岗位名，否则公司/岗位二选一
+    const hasFacets = Boolean(target || degree || city || query.nature || recruitType)
+    const inJobTitle = toText(f['招聘岗位']).includes(keyword)
+    if (hasFacets) return inJobTitle
+    return inJobTitle || toText(f['公司名称']).includes(keyword)
+  }
+  return true
+}

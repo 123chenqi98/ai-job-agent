@@ -13,12 +13,19 @@ import {
 } from './feishu/bitable.js'
 import { mapBoardRecords } from './boards/mapper.js'
 import {
+  beijingTodayDay,
+  buildDeadlinePrefilter,
   buildJobFilter,
+  DEADLINE_WINDOW_OPTIONS,
   isBigTechCompany,
+  isWithinDeadline,
+  jobRecordMatchesQuery,
   JOB_SORT,
   mapJobRecords,
   NATURE_GROUPS,
+  parseDeadlineDay,
   RECRUIT_TYPE_OPTIONS,
+  sortJobsByDeadlineAsc,
   type FeishuJobItem,
   type JobQuery,
 } from './jobs/mapper.js'
@@ -147,14 +154,15 @@ const BIG_TECH_META = {
   note: '互联网 / 科技名企口径（约 50 家，含 BAT、字节、华为、小米、新能源新势力等），按公司名匹配，口径可随时增删',
 }
 
-// 大厂模式必须全量拉取候选再内存过滤：按「除大厂外的筛选条件」缓存过滤结果 5 分钟，
-// 避免每次无限滚动翻页都重拉全表；缓存仅保存映射后的轻量行模型
-const BIG_TECH_PAGE_SIZE = 20
-const BIG_TECH_FETCH_LIMIT = 8000
-const BIG_TECH_CACHE_TTL_MS = 5 * 60 * 1000
-const bigTechCache = new Map<string, { at: number; items: FeishuJobItem[] }>()
+// 名企大厂（飞书 filter 不支持 AND 套 OR）与网申截止窗口（手填文本字段无法服务端按日期过滤）
+// 都必须全量拉取候选再内存处理：按「其余筛选条件」缓存过滤+排序后的轻量行模型 5 分钟，
+// 避免每次无限滚动翻页都重拉全表
+const IN_MEMORY_PAGE_SIZE = 20
+const IN_MEMORY_FETCH_LIMIT = 20000
+const IN_MEMORY_CACHE_TTL_MS = 5 * 60 * 1000
+const inMemoryCache = new Map<string, { at: number; items: FeishuJobItem[] }>()
 
-function bigTechCacheKey(query: JobQuery): string {
+function inMemoryCacheKey(query: JobQuery): string {
   return [
     query.keyword?.trim() ?? '',
     query.target?.trim() ?? '',
@@ -162,29 +170,56 @@ function bigTechCacheKey(query: JobQuery): string {
     query.city?.trim() ?? '',
     query.nature ?? '',
     query.recruitType ?? '',
+    query.bigTech ? '1' : '0',
+    query.deadlineWithin ? String(query.deadlineWithin) : '0',
   ].join('|')
 }
 
-async function loadBigTechItems(
+async function loadInMemoryItems(
   appToken: string,
   tableId: string,
   query: JobQuery,
 ): Promise<FeishuJobItem[]> {
-  const key = bigTechCacheKey(query)
-  const cached = bigTechCache.get(key)
-  if (cached && Date.now() - cached.at < BIG_TECH_CACHE_TTL_MS) {
+  const key = inMemoryCacheKey(query)
+  const cached = inMemoryCache.get(key)
+  if (cached && Date.now() - cached.at < IN_MEMORY_CACHE_TTL_MS) {
     return cached.items
   }
-  const records = await searchAllRecords(appToken, tableId, {
-    limit: BIG_TECH_FETCH_LIMIT,
-    filter: buildJobFilter(query),
-    sort: JOB_SORT,
-  })
-  const items = mapJobRecords(records).filter((item) => isBigTechCompany(item.company))
-  bigTechCache.set(key, { at: Date.now(), items })
-  if (bigTechCache.size > 20) {
-    const oldest = bigTechCache.keys().next().value
-    if (oldest) bigTechCache.delete(oldest)
+
+  let items: FeishuJobItem[]
+  if (query.deadlineWithin) {
+    // 截止模式：先用月份 OR 组把候选收敛到窗口覆盖月份（约 1k 条 / 3 页内，
+    // 全量翻页需 23 页约 30s），再在内存按与飞书 filter 同口径重放 facet/关键词
+    const records = await searchAllRecords(appToken, tableId, {
+      limit: IN_MEMORY_FETCH_LIMIT,
+      filter: buildDeadlinePrefilter(query.deadlineWithin),
+    })
+    const todayDay = beijingTodayDay()
+    const within = query.deadlineWithin
+    items = sortJobsByDeadlineAsc(
+      mapJobRecords(records.filter((record) => jobRecordMatchesQuery(record, query))).filter(
+        (item) => isWithinDeadline(parseDeadlineDay(item.deadline), within, todayDay),
+      ),
+    )
+    if (query.bigTech) {
+      items = items.filter((item) => isBigTechCompany(item.company))
+    }
+  } else {
+    const records = await searchAllRecords(appToken, tableId, {
+      limit: IN_MEMORY_FETCH_LIMIT,
+      filter: buildJobFilter(query),
+      sort: JOB_SORT,
+    })
+    items = mapJobRecords(records)
+    if (query.bigTech) {
+      items = items.filter((item) => isBigTechCompany(item.company))
+    }
+  }
+
+  inMemoryCache.set(key, { at: Date.now(), items })
+  if (inMemoryCache.size > 20) {
+    const oldest = inMemoryCache.keys().next().value
+    if (oldest) inMemoryCache.delete(oldest)
   }
   return items
 }
@@ -970,6 +1005,10 @@ app.get('/api/jobs', async (req, res) => {
     const resolved = await resolveApp()
     const natureRaw = typeof req.query.nature === 'string' ? req.query.nature : ''
     const recruitRaw = typeof req.query.recruit_type === 'string' ? req.query.recruit_type : ''
+    const deadlineRaw = Number.parseInt(
+      typeof req.query.deadline_within === 'string' ? req.query.deadline_within : '',
+      10,
+    )
     const query: JobQuery = {
       keyword: typeof req.query.q === 'string' ? req.query.q : undefined,
       target: typeof req.query.target === 'string' ? req.query.target : undefined,
@@ -980,18 +1019,22 @@ app.get('/api/jobs', async (req, res) => {
         ? recruitRaw
         : undefined,
       bigTech: req.query.big_tech === '1',
+      deadlineWithin: (DEADLINE_WINDOW_OPTIONS as readonly number[]).includes(deadlineRaw)
+        ? deadlineRaw
+        : undefined,
     }
     const source = friendlyNodeTitle(resolved.node.title)
 
-    if (query.bigTech) {
-      const allItems = await loadBigTechItems(resolved.appToken, config.feishu.jobsTableId, query)
-      // 大厂模式下 page_token 即下一页起始偏移（飞书原生 token 不适用内存结果集）
+    // 截止窗口与名企大厂都需全量拉候选后内存处理，共用同一条内存分页管线
+    // （page_token 即下一页起始偏移；飞书原生 token 不适用于内存结果集）
+    if (query.bigTech || query.deadlineWithin) {
+      const allItems = await loadInMemoryItems(resolved.appToken, config.feishu.jobsTableId, query)
       const offset = Number.parseInt(
         typeof req.query.page_token === 'string' ? req.query.page_token : '0',
         10,
       )
       const start = Number.isFinite(offset) && offset > 0 ? Math.min(offset, allItems.length) : 0
-      const pageItems = allItems.slice(start, start + BIG_TECH_PAGE_SIZE)
+      const pageItems = allItems.slice(start, start + IN_MEMORY_PAGE_SIZE)
       const nextOffset = start + pageItems.length
       res.json({
         source,
@@ -1005,7 +1048,7 @@ app.get('/api/jobs', async (req, res) => {
 
     const pageToken = typeof req.query.page_token === 'string' ? req.query.page_token : undefined
     const page = await searchRecords(resolved.appToken, config.feishu.jobsTableId, {
-      pageSize: BIG_TECH_PAGE_SIZE,
+      pageSize: IN_MEMORY_PAGE_SIZE,
       pageToken,
       filter: buildJobFilter(query),
       sort: JOB_SORT,
@@ -1051,6 +1094,7 @@ app.get('/api/jobs/meta', async (_req, res) => {
         nature: NATURE_OPTION_META,
         recruitType: RECRUIT_TYPE_OPTIONS,
         bigTech: BIG_TECH_META,
+        deadline: [...DEADLINE_WINDOW_OPTIONS],
       },
       totals: {
         all: all.total,
