@@ -16,9 +16,11 @@ import {
   beijingTodayDay,
   buildDeadlinePrefilter,
   buildJobFilter,
+  buildUpdatedPrefilter,
   DEADLINE_WINDOW_OPTIONS,
   isBigTechCompany,
   isWithinDeadline,
+  isWithinUpdated,
   jobRecordMatchesQuery,
   JOB_SORT,
   mapJobRecords,
@@ -26,8 +28,10 @@ import {
   parseDeadlineDay,
   RECRUIT_TYPE_OPTIONS,
   sortJobsByDeadlineAsc,
+  sortJobsByUpdatedDesc,
   type FeishuJobItem,
   type JobQuery,
+  UPDATED_WINDOW_OPTIONS,
 } from './jobs/mapper.js'
 import { parseResumePdf } from './resume/pdf.js'
 import { extractRuleProfile } from './resume/profile.js'
@@ -172,6 +176,7 @@ function inMemoryCacheKey(query: JobQuery): string {
     query.recruitType ?? '',
     query.bigTech ? '1' : '0',
     query.deadlineWithin ? String(query.deadlineWithin) : '0',
+    query.updatedWithin ? String(query.updatedWithin) : '0',
   ].join('|')
 }
 
@@ -196,9 +201,31 @@ async function loadInMemoryItems(
     })
     const todayDay = beijingTodayDay()
     const within = query.deadlineWithin
-    items = sortJobsByDeadlineAsc(
-      mapJobRecords(records.filter((record) => jobRecordMatchesQuery(record, query))).filter(
-        (item) => isWithinDeadline(parseDeadlineDay(item.deadline), within, todayDay),
+    items = mapJobRecords(records.filter((record) => jobRecordMatchesQuery(record, query))).filter(
+      (item) => {
+        if (!isWithinDeadline(parseDeadlineDay(item.deadline), within, todayDay)) return false
+        // 与「网申新增」叠加时再在内存收敛更新窗口
+        if (query.updatedWithin && !isWithinUpdated(item.updated_at, query.updatedWithin, todayDay)) {
+          return false
+        }
+        return true
+      },
+    )
+    // 截止日升序优先：与更新窗口叠加时仍按截止紧迫度排序
+    items = sortJobsByDeadlineAsc(items)
+    if (query.bigTech) {
+      items = items.filter((item) => isBigTechCompany(item.company))
+    }
+  } else if (query.updatedWithin) {
+    // 仅「网申新增」模式：DateTime 字段原生 isGreaterEqual 下推，候选直接收敛到窗口内
+    const records = await searchAllRecords(appToken, tableId, {
+      limit: IN_MEMORY_FETCH_LIMIT,
+      filter: buildUpdatedPrefilter(query.updatedWithin),
+    })
+    const todayDay = beijingTodayDay()
+    items = sortJobsByUpdatedDesc(
+      mapJobRecords(records.filter((record) => jobRecordMatchesQuery(record, query))).filter((item) =>
+        isWithinUpdated(item.updated_at, query.updatedWithin!, todayDay),
       ),
     )
     if (query.bigTech) {
@@ -1009,6 +1036,10 @@ app.get('/api/jobs', async (req, res) => {
       typeof req.query.deadline_within === 'string' ? req.query.deadline_within : '',
       10,
     )
+    const updatedRaw = Number.parseInt(
+      typeof req.query.updated_within === 'string' ? req.query.updated_within : '',
+      10,
+    )
     const query: JobQuery = {
       keyword: typeof req.query.q === 'string' ? req.query.q : undefined,
       target: typeof req.query.target === 'string' ? req.query.target : undefined,
@@ -1022,12 +1053,15 @@ app.get('/api/jobs', async (req, res) => {
       deadlineWithin: (DEADLINE_WINDOW_OPTIONS as readonly number[]).includes(deadlineRaw)
         ? deadlineRaw
         : undefined,
+      updatedWithin: (UPDATED_WINDOW_OPTIONS as readonly number[]).includes(updatedRaw)
+        ? updatedRaw
+        : undefined,
     }
     const source = friendlyNodeTitle(resolved.node.title)
 
-    // 截止窗口与名企大厂都需全量拉候选后内存处理，共用同一条内存分页管线
+    // 截止窗口、网申新增窗口与名企大厂都需拉候选后内存处理，共用同一条内存分页管线
     // （page_token 即下一页起始偏移；飞书原生 token 不适用于内存结果集）
-    if (query.bigTech || query.deadlineWithin) {
+    if (query.bigTech || query.deadlineWithin || query.updatedWithin) {
       const allItems = await loadInMemoryItems(resolved.appToken, config.feishu.jobsTableId, query)
       const offset = Number.parseInt(
         typeof req.query.page_token === 'string' ? req.query.page_token : '0',
@@ -1095,6 +1129,7 @@ app.get('/api/jobs/meta', async (_req, res) => {
         recruitType: RECRUIT_TYPE_OPTIONS,
         bigTech: BIG_TECH_META,
         deadline: [...DEADLINE_WINDOW_OPTIONS],
+        updated: [...UPDATED_WINDOW_OPTIONS],
       },
       totals: {
         all: all.total,

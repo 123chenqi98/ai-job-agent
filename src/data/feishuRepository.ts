@@ -52,6 +52,7 @@ export function getFeishuJobs(
   if (query.recruitType) params.set('recruit_type', query.recruitType)
   if (query.bigTech) params.set('big_tech', '1')
   if (query.deadlineWithin) params.set('deadline_within', String(query.deadlineWithin))
+  if (query.updatedWithin) params.set('updated_within', String(query.updatedWithin))
   if (query.pageToken) params.set('page_token', query.pageToken)
   const suffix = params.toString()
   return getJson<FeishuJobsResponse>(`/api/jobs${suffix ? `?${suffix}` : ''}`, signal)

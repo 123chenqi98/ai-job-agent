@@ -28,6 +28,7 @@ export interface JobFilter {
   recruitType: string
   bigTech: boolean
   deadlineWithin: number
+  updatedWithin: number
 }
 
 // 岗位池首次进入的默认口径：优先展示 27 届目标岗位，而不是全量 6731 条
@@ -40,6 +41,7 @@ export const DEFAULT_JOB_FILTER: JobFilter = {
   recruitType: '',
   bigTech: false,
   deadlineWithin: 0,
+  updatedWithin: 0,
 }
 
 type AsyncStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -87,6 +89,7 @@ function toQuery(filter: JobFilter, pageToken?: string): FeishuJobQuery {
     recruitType: filter.recruitType || undefined,
     bigTech: filter.bigTech || undefined,
     deadlineWithin: filter.deadlineWithin || undefined,
+    updatedWithin: filter.updatedWithin || undefined,
     pageToken,
   }
 }

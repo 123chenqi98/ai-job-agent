@@ -115,6 +115,7 @@ export default function JobPool() {
       recruitType: activeFilter.recruitType,
       bigTech: activeFilter.bigTech,
       deadlineWithin: activeFilter.deadlineWithin,
+      updatedWithin: activeFilter.updatedWithin,
       ...patch,
     })
   }
@@ -161,7 +162,8 @@ export default function JobPool() {
     activeFilter.nature !== DEFAULT_JOB_FILTER.nature ||
     activeFilter.recruitType !== DEFAULT_JOB_FILTER.recruitType ||
     activeFilter.bigTech !== DEFAULT_JOB_FILTER.bigTech ||
-    activeFilter.deadlineWithin !== DEFAULT_JOB_FILTER.deadlineWithin
+    activeFilter.deadlineWithin !== DEFAULT_JOB_FILTER.deadlineWithin ||
+    activeFilter.updatedWithin !== DEFAULT_JOB_FILTER.updatedWithin
   const remaining = Math.max(total - items.length, 0)
   const loading = bootstrapStatus === 'loading'
   const error = bootstrapStatus === 'error' ? bootstrapError : null
@@ -443,6 +445,18 @@ export default function JobPool() {
               </option>
             ))}
           </select>
+          <select
+            className={styles.filterSelect}
+            value={activeFilter.updatedWithin}
+            onChange={(e) => searchFromControls({ updatedWithin: Number(e.target.value) })}
+          >
+            <option value={0}>网申新增（全部）</option>
+            {meta?.filters.updated.map((days) => (
+              <option key={days} value={days}>
+                {days} 天内新增
+              </option>
+            ))}
+          </select>
           <button type="submit" className={styles.searchButton} disabled={searching}>
             查询
           </button>
@@ -458,7 +472,7 @@ export default function JobPool() {
         <p className={styles.filterHint}>
           关键词同时匹配「公司名称」与「招聘岗位」；城市按「工作地点」选项包含匹配（一条岗位可选多个城市，如「北京、上海」，选北京时不会漏掉）；届别 / 学历 / 企业性质 / 招聘类型均在飞书服务端按精确选项筛选。「只看名企大厂」「N
           天内截止」需服务端内存匹配（首次开启稍慢，结果缓存 5
-          分钟），可与其他筛选任意叠加；截止筛选只保留有明确截止日的岗位（不含「招满即止」等无确定日期的记录），结果按截止日升序、最紧急在前，其余列表按网申更新倒序。切换导航不会清空筛选，仅点「刷新同步」才重新拉取。
+          分钟），可与其他筛选任意叠加；截止筛选只保留有明确截止日的岗位（不含「招满即止」等无确定日期的记录），结果按截止日升序、最紧急在前；「网申新增」按「网申更新」时间筛选最近有更新（≈近期仍在活跃招聘）的岗位，仅开启新增时按更新时间倒序。切换导航不会清空筛选，仅点「刷新同步」才重新拉取。
         </p>
       </SectionCard>
 
@@ -478,7 +492,7 @@ export default function JobPool() {
       {items.length === 0 && !listError ? (
         <StateView
           title="没有符合条件的岗位"
-          description="尝试减少关键词，或放宽届别、学历、城市、企业性质、名企大厂与截止时间等筛选条件；岗位数据以飞书总表为准。"
+          description="尝试减少关键词，或放宽届别、学历、城市、企业性质、名企大厂、截止时间与网申新增等筛选条件；岗位数据以飞书总表为准。"
           actions={
             hasActiveFilter ? (
               <button type="button" className={styles.retryButton} onClick={resetFilters}>

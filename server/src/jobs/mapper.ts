@@ -30,10 +30,15 @@ export interface JobQuery {
   bigTech?: boolean
   // 仅保留 N 天内截止（含今天）的岗位；undefined/0 表示不按截止时间过滤
   deadlineWithin?: number
+  // 仅保留最近 N 天内有「网申更新」的岗位；undefined/0 表示不按更新时间过滤
+  updatedWithin?: number
 }
 
 // 网申截止快捷窗口（天），同时作为接口白名单与 meta 下发口径
 export const DEADLINE_WINDOW_OPTIONS = [3, 7, 15, 30] as const
+
+// 网申新增快捷窗口（天）：基于「网申更新」DateTime 字段，筛选最近有更新（≈近期仍在活跃招聘）的岗位
+export const UPDATED_WINDOW_OPTIONS = [3, 7, 14] as const
 
 // 企业性质快捷分组：原表实际数据里「外企 / 外企/合资 / 合资」与「事业单位 / 社会机构 / 社会组织」
 // 语义同源，按组合并为一个筛选项。飞书多选字段 contains 传多值是 any-of 语义，可直接一条条件直筛。
@@ -306,4 +311,69 @@ export function jobRecordMatchesQuery(record: BitableRecord, query: JobQuery): b
     return inJobTitle || toText(f['公司名称']).includes(keyword)
   }
   return true
+}
+
+// ---- 网申更新（新增）窗口 ----
+// 「网申更新」是飞书 DateTime 字段（毫秒时间戳），mapJobRecords 已通过 toDateText 转成
+// 北京日历日字符串 YYYY-MM-DD。窗口按北京日历日计算：今天算作第 0 天，含今天、含第 N 天。
+
+// 把 toDateText 产出的北京日历日字符串还原为 UTC 日序号，与 beijingTodayDay 同口径
+function dayFromBeijingDateText(text: string | null | undefined): number | null {
+  if (!text) return null
+  const matched = text.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!matched) return null
+  return toDayNumber(Number(matched[1]), Number(matched[2]), Number(matched[3]))
+}
+
+// 是否落在「最近 N 天内有更新（含今天）」；无更新时间或未来时间均不命中
+export function isWithinUpdated(
+  updatedText: string | null | undefined,
+  withinDays: number,
+  todayDay: number = beijingTodayDay(),
+): boolean {
+  const updatedDay = dayFromBeijingDateText(updatedText)
+  if (updatedDay === null) return false
+  const diff = todayDay - updatedDay
+  return diff >= 0 && diff <= withinDays
+}
+
+// 仅有「网申新增」筛选、无截止筛选时，结果按更新时间倒序（最新在前）
+export function sortJobsByUpdatedDesc(items: FeishuJobItem[]): FeishuJobItem[] {
+  return [...items]
+    .map((item, index) => ({ item, index, day: dayFromBeijingDateText(item.updated_at) }))
+    .sort((a, b) => {
+      if (a.day === null && b.day === null) return a.index - b.index
+      if (a.day === null) return 1
+      if (b.day === null) return -1
+      return b.day - a.day
+    })
+    .map((entry) => entry.item)
+}
+
+// 「网申新增」模式的飞书候选预过滤。
+// DateTime 字段原生支持 isGreater（注意 isGreaterEqual 不支持日期字段），可把候选从全表
+// 1.1w+ 直接收敛到窗口内（约百条级），再在内存做精确判定与排序。
+// 日期字段 value 必须为 ["ExactDate", "<毫秒时间戳>"]，时间戳会被转为文档时区当天零点；
+// 实测 isGreater 于「第 N 天 00:00」不包含当天，故阈值再向前放宽 1 天多拉一批候选，
+// 精确窗口由内存 isWithinUpdated 兜底，避免边界漏召回。
+export function buildUpdatedPrefilter(
+  withinDays: number,
+  now: number = Date.now(),
+): {
+  conjunction: 'and'
+  conditions: Array<{ field_name: string; operator: 'isGreater'; value: string[] }>
+} {
+  const todayDay = beijingTodayDay(now)
+  const thresholdDay = todayDay - withinDays - 1
+  const thresholdMs = thresholdDay * DAY_MS - 8 * 3_600_000
+  return {
+    conjunction: 'and',
+    conditions: [
+      {
+        field_name: '网申更新',
+        operator: 'isGreater',
+        value: ['ExactDate', String(thresholdMs)],
+      },
+    ],
+  }
 }

@@ -63,6 +63,7 @@ export interface FeishuJobQuery {
   recruitType?: string
   bigTech?: boolean
   deadlineWithin?: number
+  updatedWithin?: number
   pageToken?: string
 }
 
@@ -93,6 +94,7 @@ export interface FeishuJobsMeta {
     recruitType: string[]
     bigTech: BigTechFilterMeta
     deadline: number[]
+    updated: number[]
   }
   totals: { all: number; target27: number; bachelor: number }
 }
