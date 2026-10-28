@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import SectionCard from '@/components/common/SectionCard'
-import PaymentWall from '@/components/PaymentWall'
 import { useAccount } from '@/auth/AuthProvider'
 import { getAppConfig, tailorResume } from '@/data/resumeRepository'
 import type { AppConfig, TailoredExperience, TailoredPlan } from '@/types/resume'
@@ -348,7 +347,7 @@ export default function TailorPlan() {
   const [error, setError] = useState<string | null>(null)
   const [gateVisible, setGateVisible] = useState(false)
   const resumeReady = useResumeReady()
-  const { loading: accountLoading, logged, paid, aiRemaining, refresh: refreshAccount } = useAccount()
+  const { aiRemaining, refresh: refreshAccount } = useAccount()
   const abortRef = useRef<AbortController | null>(null)
   const reportRef = useRef<HTMLDivElement | null>(null)
 
@@ -436,10 +435,6 @@ export default function TailorPlan() {
         </SectionCard>
       </div>
     )
-  }
-
-  if (!accountLoading && logged && !paid) {
-    return <PaymentWall onAccessChanged={() => refreshAccount()} />
   }
 
   const arkConfigured = config?.ark_configured ?? false

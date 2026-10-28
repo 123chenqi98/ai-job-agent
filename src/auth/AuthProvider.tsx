@@ -49,7 +49,6 @@ export function useAccount() {
     userId: logged ? status.user_id : null,
     username: logged ? status.username : null,
     hasResume: logged ? status.has_resume : false,
-    paid: logged ? status.paid : false,
     aiRemaining: logged ? status.ai_remaining : null,
     isOwner: logged ? status.is_owner === true : false,
     refresh,
